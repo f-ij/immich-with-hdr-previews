@@ -5,6 +5,7 @@ import _ from 'lodash';
 import { Duration } from 'luxon';
 import { execFile as execFileCb } from 'node:child_process';
 import fs from 'node:fs/promises';
+import { basename } from 'node:path';
 import { Writable } from 'node:stream';
 import { promisify } from 'node:util';
 import sharp from 'sharp';
@@ -37,6 +38,7 @@ import {
   VideoInfo,
   VideoPacketInfo,
 } from 'src/types';
+import { writeHdrAvifThumbnail } from 'src/utils/avif-hdr-bypass';
 import { handlePromiseError } from 'src/utils/misc';
 import { createAffineMatrix } from 'src/utils/transform';
 
@@ -191,11 +193,44 @@ export class MediaRepository {
     }
   }
 
-  private writeThumbnail(input: string | Buffer, options: GenerateThumbnailOptions, output: string): Promise<void> {
+  private async writeThumbnail(
+    input: string | Buffer,
+    options: GenerateThumbnailOptions,
+    output: string,
+  ): Promise<void> {
+    if (this.shouldUseHdrAvifBypass(options, output)) {
+      try {
+        await writeHdrAvifThumbnail({
+          sourcePath: options.avifSourcePath,
+          outputPath: output,
+          size: options.size,
+          quality: options.quality,
+        });
+        return;
+      } catch (error: any) {
+        this.logger.warn(`HDR AVIF bypass failed, falling back to Sharp: ${error.message}`);
+      }
+    }
+
     return this.getImageDecodingPipeline(input, options)
       .toFormat(options.format, this.getOutputOptions(options))
       .toFile(output)
       .then(() => {});
+  }
+
+  private shouldUseHdrAvifBypass(
+    options: GenerateThumbnailOptions,
+    output: string,
+  ): options is GenerateThumbnailOptions & { avifSourcePath: string; size: number } {
+    const outputName = basename(output).toLowerCase();
+    return (
+      options.format === ImageFormat.Avif &&
+      !!options.highDynamicRange &&
+      !!options.avifSourcePath &&
+      options.size !== undefined &&
+      !options.edits?.length &&
+      (outputName.endsWith('_preview.avif') || outputName.endsWith('_thumbnail.avif'))
+    );
   }
 
   private shouldFallbackTo8BitAvif(error: Error, options: GenerateThumbnailOptions) {

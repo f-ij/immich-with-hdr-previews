@@ -26,6 +26,7 @@ import {
   VideoContainer,
 } from 'src/enum';
 import { AssetJobRepository } from 'src/repositories/asset-job.repository';
+import { ArgOf } from 'src/repositories/event.repository';
 import { BoundingBox } from 'src/repositories/machine-learning.repository';
 import { BaseService } from 'src/services/base.service';
 import {
@@ -64,6 +65,39 @@ export class MediaService extends BaseService {
   @OnEvent({ name: 'AppBootstrap', workers: [ImmichWorker.Microservices] })
   async onBootstrap() {
     this.videoInterfaces = await this.storageCore.getVideoInterfaces();
+  }
+
+  @OnEvent({ name: 'ConfigUpdate', server: true, workers: [ImmichWorker.Microservices] })
+  async onConfigUpdate({ oldConfig, newConfig }: ArgOf<'ConfigUpdate'>) {
+    if (!oldConfig.image.avifHdrBypass && newConfig.image.avifHdrBypass) {
+      await this.jobRepository.queue({ name: JobName.AssetGenerateAvifHdrThumbnailsQueueAll });
+    }
+  }
+
+  @OnJob({ name: JobName.AssetGenerateAvifHdrThumbnailsQueueAll, queue: QueueName.ThumbnailGeneration })
+  async handleQueueGenerateAvifHdrThumbnails(): Promise<JobStatus> {
+    const { image } = await this.getConfig({ withCache: true });
+    if (!image.avifHdrBypass) {
+      return JobStatus.Skipped;
+    }
+
+    let jobs: JobItem[] = [];
+
+    const queueAll = async () => {
+      await this.jobRepository.queueAll(jobs);
+      jobs = [];
+    };
+
+    for await (const asset of this.assetJobRepository.streamForAvifHdrBypassThumbnailJob()) {
+      jobs.push({ name: JobName.AssetGenerateThumbnails, data: { id: asset.id } });
+
+      if (jobs.length >= JOBS_ASSET_PAGINATION_SIZE) {
+        await queueAll();
+      }
+    }
+
+    await queueAll();
+    return JobStatus.Success;
   }
 
   @OnJob({ name: JobName.AssetGenerateThumbnailsQueueAll, queue: QueueName.ThumbnailGeneration })
@@ -312,11 +346,17 @@ export class MediaService extends BaseService {
     const extractedImage = await this.extractOriginalImage(asset, image, useEdits);
     const { info, data, colorspace, highDynamicRange, generateFullsize, convertFullsize, extracted, isTransparent } =
       extractedImage;
+    const useAvifHdrBypass =
+      image.avifHdrBypass &&
+      highDynamicRange &&
+      !useEdits &&
+      !extracted &&
+      mimeTypes.lookup(asset.originalPath) === 'image/avif';
 
-    const previewFormat = image.preview.format;
+    const previewFormat = useAvifHdrBypass ? ImageFormat.Avif : image.preview.format;
     this.warnOnTransparencyLoss(isTransparent, previewFormat, asset.id);
 
-    const thumbnailFormat = image.thumbnail.format;
+    const thumbnailFormat = useAvifHdrBypass ? ImageFormat.Avif : image.thumbnail.format;
     this.warnOnTransparencyLoss(isTransparent, thumbnailFormat, asset.id);
 
     const previewFile = this.getImageFile(asset, {
@@ -342,17 +382,21 @@ export class MediaService extends BaseService {
       raw: info,
       edits: useEdits ? asset.edits : [],
     };
+    const avifHdrBypassOptions = useAvifHdrBypass
+      ? { highDynamicRange: true, avifSourcePath: asset.originalPath }
+      : undefined;
     const thumbnailOptions = {
       ...image.thumbnail,
       ...baseOptions,
       format: thumbnailFormat,
-      ...(highDynamicRange && thumbnailFormat === ImageFormat.Avif ? { highDynamicRange } : {}),
+      ...(avifHdrBypassOptions ??
+        (highDynamicRange && thumbnailFormat === ImageFormat.Avif ? { highDynamicRange } : {})),
     };
     const previewOptions = {
       ...image.preview,
       ...baseOptions,
       format: previewFormat,
-      ...(highDynamicRange && previewFormat === ImageFormat.Avif ? { highDynamicRange } : {}),
+      ...(avifHdrBypassOptions ?? (highDynamicRange && previewFormat === ImageFormat.Avif ? { highDynamicRange } : {})),
     };
     const promises = [
       this.mediaRepository.generateThumbhash(data, baseOptions),

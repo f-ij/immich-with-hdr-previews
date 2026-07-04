@@ -73,6 +73,22 @@ describe(MediaRepository.name, () => {
   });
 
   describe('generateThumbnail', () => {
+    it('should only use the HDR AVIF bypass for preview and thumbnail outputs', () => {
+      const options = {
+        colorspace: Colorspace.P3,
+        format: ImageFormat.Avif,
+        highDynamicRange: true,
+        avifSourcePath: '/data/library/source.avif',
+        processInvalidImages: false,
+        quality: 80,
+        size: 1440,
+      };
+
+      expect(sut['shouldUseHdrAvifBypass'](options, '/data/thumbs/asset_preview.avif')).toBe(true);
+      expect(sut['shouldUseHdrAvifBypass'](options, '/data/thumbs/asset_thumbnail.avif')).toBe(true);
+      expect(sut['shouldUseHdrAvifBypass'](options, '/data/thumbs/asset_fullsize.avif')).toBe(false);
+    });
+
     it('should generate an AVIF thumbnail when HDR output is requested', async () => {
       const directory = await mkdtemp(join(tmpdir(), 'immich-avif-preview-'));
       const output = join(directory, 'preview.avif');

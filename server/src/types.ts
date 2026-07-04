@@ -69,6 +69,7 @@ type DecodeImageOptions = {
   raw?: RawImageInfo;
   edits?: AssetEditActionItem[];
   highDynamicRange?: boolean;
+  avifSourcePath?: string;
 };
 
 export interface DecodeToBufferOptions extends DecodeImageOptions {
@@ -371,6 +372,7 @@ export type JobItem =
   | { name: JobName.AssetEncodeVideo; data: IEntityJob }
 
   // Thumbnails
+  | { name: JobName.AssetGenerateAvifHdrThumbnailsQueueAll; data?: IBaseJob }
   | { name: JobName.AssetGenerateThumbnailsQueueAll; data: IBaseJob }
   | { name: JobName.AssetGenerateThumbnails; data: IEntityJob }
 

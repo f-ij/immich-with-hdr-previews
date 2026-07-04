@@ -19,7 +19,6 @@
   const formatOptions = [
     { value: ImageFormat.Jpeg, text: 'JPEG' },
     { value: ImageFormat.Webp, text: 'WebP' },
-    { value: ImageFormat.Avif, text: 'AVIF' },
   ];
 
   const isProgressiveSupported = (format: string | number) => format === ImageFormat.Jpeg;
@@ -204,6 +203,17 @@
             checked={configToEdit.image.extractEmbedded}
             onToggle={() => (configToEdit.image.extractEmbedded = !configToEdit.image.extractEmbedded)}
             isEdited={configToEdit.image.extractEmbedded !== config.image.extractEmbedded}
+            {disabled}
+          />
+        </div>
+
+        <div class="mt-4">
+          <SettingSwitch
+            title={$t('admin.image_avif_hdr_bypass')}
+            subtitle={$t('admin.image_avif_hdr_bypass_description')}
+            checked={configToEdit.image.avifHdrBypass}
+            onToggle={(isChecked) => (configToEdit.image.avifHdrBypass = isChecked)}
+            isEdited={configToEdit.image.avifHdrBypass !== config.image.avifHdrBypass}
             {disabled}
           />
         </div>

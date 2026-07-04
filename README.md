@@ -1,3 +1,6 @@
+> [!NOTE]
+> This is a custom Immich fork for experimenting with HDR AVIF preview and thumbnail generation. See [fork.md](fork.md) for the fork-specific changes and merge notes.
+
 <p align="center"> 
   <br/>
   <a href="https://opensource.org/license/agpl-v3"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg?color=3F51B5&style=for-the-badge&label=License&logoColor=000000&labelColor=ececec" alt="License: AGPLv3"></a>

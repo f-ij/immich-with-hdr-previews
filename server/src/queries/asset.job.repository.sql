@@ -172,6 +172,96 @@ where
     )
   )
 
+-- AssetJobRepository.streamForAvifHdrBypassThumbnailJob
+select
+  "asset"."id"
+from
+  "asset"
+  inner join "asset_exif" on "asset_exif"."assetId" = "asset"."id"
+  left join "asset_file" as "preview_file" on "preview_file"."assetId" = "asset"."id"
+  and "preview_file"."type" = 'preview'
+  and "preview_file"."isEdited" = false
+  left join "asset_file" as "thumbnail_file" on "thumbnail_file"."assetId" = "asset"."id"
+  and "thumbnail_file"."type" = 'thumbnail'
+  and "thumbnail_file"."isEdited" = false
+where
+  "asset"."deletedAt" is null
+  and "asset"."visibility" != 'hidden'
+  and "asset"."type" = 'IMAGE'
+  and lower(asset."originalFileName") like $1
+  and (
+    "asset_exif"."bitsPerSample" > $2
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $3
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $4
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $5
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $6
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $7
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $8
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $9
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $10
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $11
+  )
+  and (
+    "preview_file"."path" is null
+    or "thumbnail_file"."path" is null
+    or lower(preview_file.path) not like $12
+    or lower(thumbnail_file.path) not like $13
+  )
+
 -- AssetJobRepository.getForMigrationJob
 select
   "asset"."id",

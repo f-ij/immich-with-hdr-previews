@@ -103,6 +103,54 @@ export class AssetJobRepository {
       .stream();
   }
 
+  @GenerateSql({ params: [], stream: true })
+  streamForAvifHdrBypassThumbnailJob() {
+    return this.db
+      .selectFrom('asset')
+      .innerJoin('asset_exif', 'asset_exif.assetId', 'asset.id')
+      .leftJoin('asset_file as preview_file', (join) =>
+        join
+          .onRef('preview_file.assetId', '=', 'asset.id')
+          .on('preview_file.type', '=', sql.lit(AssetFileType.Preview))
+          .on('preview_file.isEdited', '=', sql.lit(false)),
+      )
+      .leftJoin('asset_file as thumbnail_file', (join) =>
+        join
+          .onRef('thumbnail_file.assetId', '=', 'asset.id')
+          .on('thumbnail_file.type', '=', sql.lit(AssetFileType.Thumbnail))
+          .on('thumbnail_file.isEdited', '=', sql.lit(false)),
+      )
+      .select('asset.id')
+      .where('asset.deletedAt', 'is', null)
+      .where('asset.visibility', '!=', sql.lit(AssetVisibility.Hidden))
+      .where('asset.type', '=', sql.lit(AssetType.Image))
+      .where(sql`lower(asset."originalFileName")`, 'like', '%.avif')
+      .where(({ eb, or }) => {
+        const colorMetadata = sql<string>`lower(concat_ws(' ', asset_exif.colorspace, asset_exif."profileDescription"))`;
+        return or([
+          eb('asset_exif.bitsPerSample', '>', 8),
+          eb(colorMetadata, 'like', '%hdr%'),
+          eb(colorMetadata, 'like', '%hlg%'),
+          eb(colorMetadata, 'like', '%pq%'),
+          eb(colorMetadata, 'like', '%rec.2020%'),
+          eb(colorMetadata, 'like', '%rec2020%'),
+          eb(colorMetadata, 'like', '%bt.2020%'),
+          eb(colorMetadata, 'like', '%bt2020%'),
+          eb(colorMetadata, 'like', '%smpte st 2084%'),
+          eb(colorMetadata, 'like', '%arib std-b67%'),
+        ]);
+      })
+      .where(({ eb, or }) =>
+        or([
+          eb('preview_file.path', 'is', null),
+          eb('thumbnail_file.path', 'is', null),
+          eb(sql`lower(preview_file.path)`, 'not like', '%.avif'),
+          eb(sql`lower(thumbnail_file.path)`, 'not like', '%.avif'),
+        ]),
+      )
+      .stream();
+  }
+
   @GenerateSql({ params: [DummyValue.UUID] })
   getForMigrationJob(id: string) {
     return this.db

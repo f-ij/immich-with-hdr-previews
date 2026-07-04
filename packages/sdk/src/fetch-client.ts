@@ -2361,6 +2361,8 @@ export type SystemConfigGeneratedImageDto = {
     size: number;
 };
 export type SystemConfigImageDto = {
+    /** AVIF HDR bypass */
+    avifHdrBypass: boolean;
     colorspace: Colorspace;
     /** Extract embedded */
     extractEmbedded: boolean;

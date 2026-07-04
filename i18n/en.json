@@ -83,6 +83,8 @@
     "facial_recognition_job_description": "Group detected faces into people. This step runs after Face Detection is complete. \"Reset\" (re-)clusters all faces. \"Missing\" queues faces that don't have a person assigned.",
     "failed_job_command": "Command {command} failed for job: {job}",
     "force_delete_user_warning": "WARNING: This will immediately remove the user and all assets. This cannot be undone and the files cannot be recovered.",
+    "image_avif_hdr_bypass": "Bypass HDR AVIF previews",
+    "image_avif_hdr_bypass_description": "Generate AVIF previews and thumbnails only for HDR AVIF originals, preserving HDR color signaling while using the configured preview and thumbnail sizes and qualities.",
     "image_format": "Format",
     "image_format_description": "WebP produces smaller files than JPEG, but is slower to encode.",
     "image_fullsize_description": "Full-size image with stripped metadata, used when zoomed in",
