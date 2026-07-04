@@ -19123,6 +19123,7 @@
       "ImageFormat": {
         "description": "Image format",
         "enum": [
+          "avif",
           "jpeg",
           "webp"
         ],

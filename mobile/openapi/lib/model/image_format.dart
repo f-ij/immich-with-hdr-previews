@@ -23,11 +23,13 @@ class ImageFormat {
 
   String toJson() => value;
 
+  static const avif = ImageFormat._(r'avif');
   static const jpeg = ImageFormat._(r'jpeg');
   static const webp = ImageFormat._(r'webp');
 
   /// List of all possible values in this [enum][ImageFormat].
   static const values = <ImageFormat>[
+    avif,
     jpeg,
     webp,
   ];
@@ -68,6 +70,7 @@ class ImageFormatTypeTransformer {
   ImageFormat? decode(dynamic data, {bool allowNull = true}) {
     if (data != null) {
       switch (data) {
+        case r'avif': return ImageFormat.avif;
         case r'jpeg': return ImageFormat.jpeg;
         case r'webp': return ImageFormat.webp;
         default:
@@ -82,4 +85,3 @@ class ImageFormatTypeTransformer {
   /// Singleton [ImageFormatTypeTransformer] instance.
   static ImageFormatTypeTransformer? _instance;
 }
-

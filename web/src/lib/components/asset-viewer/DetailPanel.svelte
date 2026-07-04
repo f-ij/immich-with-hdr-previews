@@ -9,6 +9,7 @@
   import { assetViewerManager } from '$lib/managers/asset-viewer-manager.svelte';
   import { authManager } from '$lib/managers/auth-manager.svelte';
   import { featureFlagsManager } from '$lib/managers/feature-flags-manager.svelte';
+  import { systemConfigManager } from '$lib/managers/system-config-manager.svelte'; // # DEBUG#
   import { Route } from '$lib/route';
   import { locale } from '$lib/stores/preferences.store';
   import { getAssetMediaUrl } from '$lib/utils';
@@ -43,6 +44,19 @@
   let { asset, currentAlbum = null }: Props = $props();
 
   let isOwner = $derived(authManager.authenticated && authManager.user.id === asset.ownerId);
+  // # DEBUG#
+  let debugPreviewFormat = $derived(systemConfigManager.value.image.preview.format);
+  let debugDisplayedQuality = $derived.by(() => {
+    const quality = assetViewerManager.imageLoaderStatus?.quality;
+    return quality?.original === 'success'
+      ? 'original'
+      : quality?.preview === 'success'
+        ? 'preview'
+        : quality?.thumbnail === 'success'
+          ? 'thumbnail'
+          : 'loading';
+  });
+  // #DEBUG#
   let latlng = $derived(
     (() => {
       const lat = asset.exifInfo?.latitude;
@@ -207,6 +221,11 @@
               {/if}
             </div>
           {/if}
+          <!-- # DEBUG# -->
+          <p class="text-xs opacity-50">
+            DEBUG preview: configured={debugPreviewFormat}, displayed={debugDisplayedQuality}
+          </p>
+          <!-- #DEBUG# -->
         </div>
       </div>
 

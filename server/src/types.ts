@@ -68,6 +68,7 @@ type DecodeImageOptions = {
   processInvalidImages: boolean;
   raw?: RawImageInfo;
   edits?: AssetEditActionItem[];
+  highDynamicRange?: boolean;
 };
 
 export interface DecodeToBufferOptions extends DecodeImageOptions {

@@ -738,6 +738,28 @@ describe(MediaService.name, () => {
       );
     });
 
+    it('should encode AVIF previews as HDR when image metadata is high bit depth', async () => {
+      const asset = AssetFactory.from().exif({ bitsPerSample: 10, profileDescription: 'Display P3 HDR' }).build();
+      mocks.systemMetadata.get.mockResolvedValue({ image: { preview: { format: ImageFormat.Avif } } });
+      mocks.assetJob.getForGenerateThumbnailJob.mockResolvedValue(getForGenerateThumbnail(asset));
+
+      await sut.handleGenerateThumbnails({ id: asset.id });
+
+      expect(mocks.media.decodeImage).toHaveBeenCalledWith(asset.originalPath, {
+        colorspace: Colorspace.P3,
+        processInvalidImages: false,
+        size: 1440,
+      });
+      expect(mocks.media.generateThumbnail).toHaveBeenCalledWith(
+        rawBuffer,
+        expect.objectContaining({
+          format: ImageFormat.Avif,
+          highDynamicRange: true,
+        }),
+        expect.stringContaining('preview.avif'),
+      );
+    });
+
     it.each(Object.values(ImageFormat))('should generate an image thumbnail in %s format', async (format) => {
       const asset = AssetFactory.from().exif().build();
       mocks.systemMetadata.get.mockResolvedValue({ image: { thumbnail: { format } } });
@@ -3841,6 +3863,22 @@ describe(MediaService.name, () => {
     it('should return true for 16-bit image with sRGB profile', () => {
       expect(sut.isSRGB({ profileDescription: 'sRGB', bitsPerSample: 16 } as ShallowDehydrateObject<Exif>)).toEqual(
         true,
+      );
+    });
+  });
+
+  describe('isHDRImage', () => {
+    it('should return true for high bit depth images', () => {
+      expect(sut.isHDRImage({ bitsPerSample: 10 } as ShallowDehydrateObject<Exif>)).toEqual(true);
+    });
+
+    it('should return true for HDR transfer/profile metadata', () => {
+      expect(sut.isHDRImage({ profileDescription: 'BT.2020 HLG' } as ShallowDehydrateObject<Exif>)).toEqual(true);
+    });
+
+    it('should return false for standard 8-bit images', () => {
+      expect(sut.isHDRImage({ bitsPerSample: 8, profileDescription: 'sRGB' } as ShallowDehydrateObject<Exif>)).toEqual(
+        false,
       );
     });
   });
