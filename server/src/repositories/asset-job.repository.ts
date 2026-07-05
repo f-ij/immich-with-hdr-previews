@@ -108,18 +108,6 @@ export class AssetJobRepository {
     return this.db
       .selectFrom('asset')
       .innerJoin('asset_exif', 'asset_exif.assetId', 'asset.id')
-      .leftJoin('asset_file as preview_file', (join) =>
-        join
-          .onRef('preview_file.assetId', '=', 'asset.id')
-          .on('preview_file.type', '=', sql.lit(AssetFileType.Preview))
-          .on('preview_file.isEdited', '=', sql.lit(false)),
-      )
-      .leftJoin('asset_file as thumbnail_file', (join) =>
-        join
-          .onRef('thumbnail_file.assetId', '=', 'asset.id')
-          .on('thumbnail_file.type', '=', sql.lit(AssetFileType.Thumbnail))
-          .on('thumbnail_file.isEdited', '=', sql.lit(false)),
-      )
       .select('asset.id')
       .where('asset.deletedAt', 'is', null)
       .where('asset.visibility', '!=', sql.lit(AssetVisibility.Hidden))
@@ -140,14 +128,6 @@ export class AssetJobRepository {
           eb(colorMetadata, 'like', '%arib std-b67%'),
         ]);
       })
-      .where(({ eb, or }) =>
-        or([
-          eb('preview_file.path', 'is', null),
-          eb('thumbnail_file.path', 'is', null),
-          eb(sql`lower(preview_file.path)`, 'not like', '%.avif'),
-          eb(sql`lower(thumbnail_file.path)`, 'not like', '%.avif'),
-        ]),
-      )
       .stream();
   }
 

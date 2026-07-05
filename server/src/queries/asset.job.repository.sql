@@ -178,12 +178,6 @@ select
 from
   "asset"
   inner join "asset_exif" on "asset_exif"."assetId" = "asset"."id"
-  left join "asset_file" as "preview_file" on "preview_file"."assetId" = "asset"."id"
-  and "preview_file"."type" = 'preview'
-  and "preview_file"."isEdited" = false
-  left join "asset_file" as "thumbnail_file" on "thumbnail_file"."assetId" = "asset"."id"
-  and "thumbnail_file"."type" = 'thumbnail'
-  and "thumbnail_file"."isEdited" = false
 where
   "asset"."deletedAt" is null
   and "asset"."visibility" != 'hidden'
@@ -254,12 +248,6 @@ where
         asset_exif."profileDescription"
       )
     ) like $11
-  )
-  and (
-    "preview_file"."path" is null
-    or "thumbnail_file"."path" is null
-    or lower(preview_file.path) not like $12
-    or lower(thumbnail_file.path) not like $13
   )
 
 -- AssetJobRepository.getForMigrationJob

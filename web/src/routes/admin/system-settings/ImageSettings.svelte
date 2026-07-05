@@ -210,7 +210,7 @@
         <div class="mt-4">
           <SettingSwitch
             title={$t('admin.image_avif_hdr_bypass')}
-            subtitle={$t('admin.image_avif_hdr_bypass_description')}
+            subtitle={`${$t('admin.image_avif_hdr_bypass_description')} (You may need to clear your browser cache after enabling this.)`}
             checked={configToEdit.image.avifHdrBypass}
             onToggle={(isChecked) => (configToEdit.image.avifHdrBypass = isChecked)}
             isEdited={configToEdit.image.avifHdrBypass !== config.image.avifHdrBypass}
