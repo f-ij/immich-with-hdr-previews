@@ -820,9 +820,10 @@ describe(MediaService.name, () => {
       expect(mocks.media.generateThumbnail).toHaveBeenCalledWith(
         rawBuffer,
         expect.objectContaining({
-          avifSourcePath: asset.originalPath,
           format: ImageFormat.Avif,
           highDynamicRange: true,
+          hdrSourceMimeType: 'image/avif',
+          hdrSourcePath: asset.originalPath,
           quality: 80,
           size: 250,
         }),
@@ -831,9 +832,51 @@ describe(MediaService.name, () => {
       expect(mocks.media.generateThumbnail).toHaveBeenCalledWith(
         rawBuffer,
         expect.objectContaining({
-          avifSourcePath: asset.originalPath,
           format: ImageFormat.Avif,
           highDynamicRange: true,
+          hdrSourceMimeType: 'image/avif',
+          hdrSourcePath: asset.originalPath,
+          quality: 80,
+          size: 1440,
+        }),
+        expect.stringContaining('preview.avif'),
+      );
+    });
+
+    it.each([
+      ['JXL', 'jxl', 'image/jxl'],
+      ['HEIC', 'heic', 'image/heic'],
+    ])('should route HDR %s originals through AVIF preview and thumbnail generation when enabled', async (_, extension, mimeType) => {
+      const asset = AssetFactory.from({
+        originalFileName: `IMG_1234.${extension}`,
+        originalPath: `/data/library/IMG_1234.${extension}`,
+      })
+        .exif({ bitsPerSample: 10, profileDescription: 'BT.2020 PQ' })
+        .build();
+      mocks.systemMetadata.get.mockResolvedValue({ image: { avifHdrBypass: true } });
+      mocks.assetJob.getForGenerateThumbnailJob.mockResolvedValue(getForGenerateThumbnail(asset));
+
+      await sut.handleGenerateThumbnails({ id: asset.id });
+
+      expect(mocks.media.generateThumbnail).toHaveBeenCalledWith(
+        rawBuffer,
+        expect.objectContaining({
+          format: ImageFormat.Avif,
+          highDynamicRange: true,
+          hdrSourceMimeType: mimeType,
+          hdrSourcePath: asset.originalPath,
+          quality: 80,
+          size: 250,
+        }),
+        expect.stringContaining('thumbnail.avif'),
+      );
+      expect(mocks.media.generateThumbnail).toHaveBeenCalledWith(
+        rawBuffer,
+        expect.objectContaining({
+          format: ImageFormat.Avif,
+          highDynamicRange: true,
+          hdrSourceMimeType: mimeType,
+          hdrSourcePath: asset.originalPath,
           quality: 80,
           size: 1440,
         }),

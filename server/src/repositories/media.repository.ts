@@ -38,7 +38,7 @@ import {
   VideoInfo,
   VideoPacketInfo,
 } from 'src/types';
-import { writeHdrAvifThumbnail } from 'src/utils/avif-hdr-bypass';
+import { writeHdrImageAvifPreview } from 'src/utils/hdr-image-avif-preview';
 import { handlePromiseError } from 'src/utils/misc';
 import { createAffineMatrix } from 'src/utils/transform';
 
@@ -198,10 +198,12 @@ export class MediaRepository {
     options: GenerateThumbnailOptions,
     output: string,
   ): Promise<void> {
-    if (this.shouldUseHdrAvifBypass(options, output)) {
+    const hdrSourcePath = options.hdrSourcePath ?? options.avifSourcePath;
+    if (this.shouldUseHdrImageAvifPreview(options, output) && hdrSourcePath) {
       try {
-        await writeHdrAvifThumbnail({
-          sourcePath: options.avifSourcePath,
+        await writeHdrImageAvifPreview({
+          sourcePath: hdrSourcePath,
+          sourceMimeType: options.hdrSourceMimeType ?? (options.avifSourcePath ? 'image/avif' : undefined),
           outputPath: output,
           size: options.size,
           quality: options.quality,
@@ -218,15 +220,15 @@ export class MediaRepository {
       .then(() => {});
   }
 
-  private shouldUseHdrAvifBypass(
+  private shouldUseHdrImageAvifPreview(
     options: GenerateThumbnailOptions,
     output: string,
-  ): options is GenerateThumbnailOptions & { avifSourcePath: string; size: number } {
+  ): options is GenerateThumbnailOptions & { size: number } {
     const outputName = basename(output).toLowerCase();
     return (
       options.format === ImageFormat.Avif &&
       !!options.highDynamicRange &&
-      !!options.avifSourcePath &&
+      (!!options.hdrSourcePath || !!options.avifSourcePath) &&
       options.size !== undefined &&
       !options.edits?.length &&
       (outputName.endsWith('_preview.avif') || outputName.endsWith('_thumbnail.avif'))

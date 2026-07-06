@@ -5,7 +5,8 @@ This branch is a small custom fork for HDR AVIF originals whose Immich previews 
 ## User-Facing Behavior
 
 - Adds an admin image setting named "AVIF HDR bypass".
-- When enabled, only HDR AVIF originals generate AVIF previews and thumbnails through the custom bypass path.
+- When enabled, HDR AVIF originals generate AVIF previews and thumbnails through the custom bypass path.
+- On the experimental source-decoder branch, HDR JXL/HEIC/HEIF originals are also routed to the same AVIF preview path when the runtime can decode them.
 - The normal preview and thumbnail format dropdowns still control all other images.
 - Existing HDR AVIF preview/thumbnail files are backfilled once when the setting is changed from disabled to enabled.
 
@@ -22,11 +23,15 @@ This branch is a small custom fork for HDR AVIF originals whose Immich previews 
 
 ## Custom Pipeline
 
-The custom AVIF pipeline is isolated in:
+The stable AVIF entry point is isolated in:
 
 - `server/src/utils/avif-hdr-bypass.ts`
 
-It uses `ffprobe` to read AVIF color metadata, `ffmpeg` to downscale pixels, and `avifenc` to encode the preview/thumbnail while preserving CICP/range and, when present, content light level metadata.
+On the experimental source-decoder branch, that file wraps:
+
+- `server/src/utils/hdr-image-avif-preview.ts`
+
+The pipeline uses `ffprobe` to read color metadata, `ffmpeg` to downscale pixels, and `avifenc` to encode the preview/thumbnail while preserving CICP/range and, when present, content light level metadata.
 
 The runtime dependency for this is:
 
@@ -68,3 +73,17 @@ This branch intentionally avoids schema changes so a stock Immich build can be r
 Keep the custom AVIF work isolated. If upstream changes thumbnail generation, prefer adapting only the hook points in `media.service.ts` and `media.repository.ts` while keeping the AVIF-specific command logic in `server/src/utils/avif-hdr-bypass.ts`.
 
 Do not expand the bypass to fullsize images unless that is an explicit future goal. The current branch is deliberately limited to previews and thumbnails.
+
+## Experimental Source Decoder Branch
+
+The `experiment/hdr-source-avif-previews` branch explores a more general split:
+
+- source HDR image decoder
+- resized 10-bit Y4M intermediate
+- AVIF encoder
+
+That experiment keeps the old `avif-hdr-bypass.ts` entry point as a compatibility wrapper, and moves the generic source-to-AVIF preview pipeline into:
+
+- `server/src/utils/hdr-image-avif-preview.ts`
+
+The first experimental decoder still uses FFmpeg directly, so JXL/HEIC support depends on the FFmpeg build or future source-specific decoders. The service/repository hooks are intentionally minimal and should remain easy to drop, rename, or rebase while tracking upstream `main`.

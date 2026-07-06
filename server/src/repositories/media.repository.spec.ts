@@ -73,7 +73,7 @@ describe(MediaRepository.name, () => {
   });
 
   describe('generateThumbnail', () => {
-    it('should only use the HDR AVIF bypass for preview and thumbnail outputs', () => {
+    it('should only use the HDR AVIF preview path for preview and thumbnail outputs', () => {
       const options = {
         colorspace: Colorspace.P3,
         format: ImageFormat.Avif,
@@ -84,9 +84,24 @@ describe(MediaRepository.name, () => {
         size: 1440,
       };
 
-      expect(sut['shouldUseHdrAvifBypass'](options, '/data/thumbs/asset_preview.avif')).toBe(true);
-      expect(sut['shouldUseHdrAvifBypass'](options, '/data/thumbs/asset_thumbnail.avif')).toBe(true);
-      expect(sut['shouldUseHdrAvifBypass'](options, '/data/thumbs/asset_fullsize.avif')).toBe(false);
+      expect(sut['shouldUseHdrImageAvifPreview'](options, '/data/thumbs/asset_preview.avif')).toBe(true);
+      expect(sut['shouldUseHdrImageAvifPreview'](options, '/data/thumbs/asset_thumbnail.avif')).toBe(true);
+      expect(sut['shouldUseHdrImageAvifPreview'](options, '/data/thumbs/asset_fullsize.avif')).toBe(false);
+    });
+
+    it('should allow generic HDR image sources for AVIF preview and thumbnail outputs', () => {
+      const options = {
+        colorspace: Colorspace.P3,
+        format: ImageFormat.Avif,
+        highDynamicRange: true,
+        hdrSourceMimeType: 'image/jxl',
+        hdrSourcePath: '/data/library/source.jxl',
+        processInvalidImages: false,
+        quality: 80,
+        size: 1440,
+      };
+
+      expect(sut['shouldUseHdrImageAvifPreview'](options, '/data/thumbs/asset_preview.avif')).toBe(true);
     });
 
     it('should generate an AVIF thumbnail when HDR output is requested', async () => {

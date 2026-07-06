@@ -69,6 +69,8 @@ type DecodeImageOptions = {
   raw?: RawImageInfo;
   edits?: AssetEditActionItem[];
   highDynamicRange?: boolean;
+  hdrSourcePath?: string;
+  hdrSourceMimeType?: string;
   avifSourcePath?: string;
 };
 

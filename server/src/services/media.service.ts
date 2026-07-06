@@ -346,12 +346,13 @@ export class MediaService extends BaseService {
     const extractedImage = await this.extractOriginalImage(asset, image, useEdits);
     const { info, data, colorspace, highDynamicRange, generateFullsize, convertFullsize, extracted, isTransparent } =
       extractedImage;
+    const sourceMimeType = mimeTypes.lookup(asset.originalPath);
     const useAvifHdrBypass =
       image.avifHdrBypass &&
       highDynamicRange &&
       !useEdits &&
       !extracted &&
-      mimeTypes.lookup(asset.originalPath) === 'image/avif';
+      this.isHdrAvifPreviewSource(sourceMimeType);
 
     const previewFormat = useAvifHdrBypass ? ImageFormat.Avif : image.preview.format;
     this.warnOnTransparencyLoss(isTransparent, previewFormat, asset.id);
@@ -383,7 +384,11 @@ export class MediaService extends BaseService {
       edits: useEdits ? asset.edits : [],
     };
     const avifHdrBypassOptions = useAvifHdrBypass
-      ? { highDynamicRange: true, avifSourcePath: asset.originalPath }
+      ? {
+          highDynamicRange: true,
+          hdrSourceMimeType: sourceMimeType || undefined,
+          hdrSourcePath: asset.originalPath,
+        }
       : undefined;
     const thumbnailOptions = {
       ...image.thumbnail,
@@ -845,6 +850,16 @@ export class MediaService extends BaseService {
     const colorMetadata = [colorspace, profileDescription].filter(Boolean).join(' ').toLowerCase();
     return ['hdr', 'hlg', 'pq', 'rec.2020', 'rec2020', 'bt.2020', 'bt2020', 'smpte st 2084', 'arib std-b67'].some(
       (value) => colorMetadata.includes(value),
+    );
+  }
+
+  private isHdrAvifPreviewSource(mimeType: string | false) {
+    return (
+      mimeType === 'image/avif' ||
+      mimeType === 'image/jxl' ||
+      mimeType === 'image/heic' ||
+      mimeType === 'image/heif' ||
+      mimeType === 'image/hif'
     );
   }
 

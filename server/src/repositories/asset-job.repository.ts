@@ -112,7 +112,9 @@ export class AssetJobRepository {
       .where('asset.deletedAt', 'is', null)
       .where('asset.visibility', '!=', sql.lit(AssetVisibility.Hidden))
       .where('asset.type', '=', sql.lit(AssetType.Image))
-      .where(sql`lower(asset."originalFileName")`, 'like', '%.avif')
+      .where(
+        sql<boolean>`lower(asset."originalFileName") like any (array['%.avif', '%.jxl', '%.heic', '%.heif', '%.hif']::text[])`,
+      )
       .where(({ eb, or }) => {
         const colorMetadata = sql<string>`lower(concat_ws(' ', asset_exif.colorspace, asset_exif."profileDescription"))`;
         return or([
