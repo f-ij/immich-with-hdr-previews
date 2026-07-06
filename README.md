@@ -1,3 +1,6 @@
+> [!WARNING]
+> This is an experimental personal fork. Use at your own risk.
+
 > [!NOTE]
 > This is a custom Immich fork for experimenting with HDR AVIF preview and thumbnail generation. See [fork.md](fork.md) for the fork-specific changes and merge notes.
 
