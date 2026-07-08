@@ -4,6 +4,9 @@
 > [!NOTE]
 > This is a custom Immich fork for experimenting with HDR AVIF preview and thumbnail generation. See [fork.md](fork.md) for the fork-specific changes and merge notes.
 
+> [!WARNING]
+> The HDR AVIF preview path currently targets the web app. The Immich mobile app may not display these HDR AVIF previews correctly yet, and can show only a blurred non-zoomable placeholder for affected assets. This is being investigated.
+
 <p align="center"> 
   <br/>
   <a href="https://opensource.org/license/agpl-v3"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg?color=3F51B5&style=for-the-badge&label=License&logoColor=000000&labelColor=ececec" alt="License: AGPLv3"></a>
