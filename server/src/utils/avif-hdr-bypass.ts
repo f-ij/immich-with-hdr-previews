@@ -116,7 +116,7 @@ export async function writeHdrAvifThumbnail({
       'error',
       ...buildFfmpegResizeInputArgs(sourcePath, size, metadata.tileGrid),
       '-pix_fmt',
-      'yuv420p10le',
+      'yuv444p10le',
       '-color_primaries',
       metadata.colorPrimaries,
       '-color_trc',

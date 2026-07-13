@@ -5,7 +5,7 @@
 > This is a custom Immich fork for experimenting with HDR AVIF preview and thumbnail generation. See [fork.md](fork.md) for the fork-specific changes and merge notes.
 
 > [!WARNING]
-> The HDR AVIF preview path currently targets the web app. The Immich mobile app may not display these HDR AVIF previews correctly yet, and can show only a blurred non-zoomable placeholder for affected assets. This is being investigated.
+> The HDR AVIF preview path currently targets the web app. The Immich mobile app may not display these HDR AVIF previews correctly yet, and can show only a blurred non-zoomable placeholder for affected assets. A controlled 10-bit YUV420 test on iOS produced the same failure, so changing chroma subsampling alone is not a solution. See [fork.md](fork.md#ios-mobile-app-compatibility) for details.
 
 <p align="center"> 
   <br/>
