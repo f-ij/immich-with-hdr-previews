@@ -1,5 +1,11 @@
+> [!WARNING]
+> This is an experimental personal fork. Use at your own risk.
+
 > [!NOTE]
 > This is a custom Immich fork for experimenting with HDR AVIF preview and thumbnail generation. See [fork.md](fork.md) for the fork-specific changes and merge notes.
+
+> [!WARNING]
+> The HDR AVIF preview path currently targets the web app. The Immich mobile app may not display these HDR AVIF previews correctly yet, and can show only a blurred non-zoomable placeholder for affected assets. This is being investigated.
 
 <p align="center"> 
   <br/>

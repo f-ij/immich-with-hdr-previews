@@ -15,7 +15,7 @@ concurrency:
 jobs:
   sync-main:
     name: Fast-forward main from upstream
-    if: github.repository == 'f-ij/immich'
+    if: github.repository == 'f-ij/immich-with-hdr-previews'
     runs-on: ubuntu-latest
     steps:
       - name: Check out main
