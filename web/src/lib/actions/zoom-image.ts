@@ -8,11 +8,18 @@ type TouchEventLike = {
 };
 const asTouchEvent = (event: Event) => event as unknown as TouchEventLike;
 
-export const zoomImageAction = (node: HTMLElement, options?: { zoomTarget?: HTMLElement }) => {
+type ZoomImageActionOptions = {
+  zoomTarget?: HTMLElement;
+  touchAction?: string;
+  shouldZoomOnSingleTouch?: () => boolean;
+};
+
+export const zoomImageAction = (node: HTMLElement, options?: ZoomImageActionOptions) => {
   const zoomInstance = createZoomImageWheel(node, {
     maxZoom: 10,
     initialState: assetViewerManager.zoomState,
     zoomTarget: options?.zoomTarget,
+    shouldZoomOnSingleTouch: options?.shouldZoomOnSingleTouch,
   });
 
   const unsubscribes = [
@@ -125,10 +132,11 @@ export const zoomImageAction = (node: HTMLElement, options?: { zoomTarget?: HTML
   );
 
   node.style.overflow = 'visible';
-  node.style.touchAction = 'none';
+  node.style.touchAction = options?.touchAction ?? 'none';
   return {
-    update(newOptions?: { zoomTarget?: HTMLElement }) {
+    update(newOptions?: ZoomImageActionOptions) {
       options = newOptions;
+      node.style.touchAction = newOptions?.touchAction ?? 'none';
       if (newOptions?.zoomTarget !== undefined) {
         zoomInstance.setState({ zoomTarget: newOptions.zoomTarget });
       }
