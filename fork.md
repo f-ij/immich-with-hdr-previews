@@ -68,3 +68,15 @@ This branch intentionally avoids schema changes so a stock Immich build can be r
 Keep the custom AVIF work isolated. If upstream changes thumbnail generation, prefer adapting only the hook points in `media.service.ts` and `media.repository.ts` while keeping the AVIF-specific command logic in `server/src/utils/avif-hdr-bypass.ts`.
 
 Do not expand the bypass to fullsize images unless that is an explicit future goal. The current branch is deliberately limited to previews and thumbnails.
+
+## iPhone Safari Photo Fullscreen Investigation
+
+The `experiment/ios-safari-photo-fullscreen` branch records the result of investigating whether Immich can hide Safari's URL and tab bars while a photo is open in a normal iPhone browser tab.
+
+- Immich already calls `Element.requestFullscreen()` on the asset viewer when starting a slideshow and exposes another fullscreen action in the slideshow controls.
+- Immich already links a web app manifest with `"display": "standalone"`. Launching an Immich shortcut added to the iOS Home Screen therefore removes Safari's URL and tab bars.
+- WebKit does not currently expose element fullscreen for non-video content in a normal Safari tab on iPhone. The open WebKit issue is [206854: Add Fullscreen API to iOS](https://bugs.webkit.org/show_bug.cgi?id=206854).
+- `apple-mobile-web-app-capable` and manifest display modes only affect Home Screen launches; they cannot hide browser chrome in an existing Safari tab.
+- Scroll-based toolbar-collapse tricks are intentionally not included because they are unreliable, do not remove every landscape control, and can break viewer gestures and zooming.
+
+There is consequently no safe Immich code change on this branch beyond this record. A real normal-tab solution depends on WebKit shipping non-video `Element.requestFullscreen()` on iPhone. The supported current workaround is to add Immich to the Home Screen and launch it from that icon.
