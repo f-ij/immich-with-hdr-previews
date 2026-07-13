@@ -199,11 +199,12 @@ export class MediaRepository {
     output: string,
   ): Promise<void> {
     const hdrSourcePath = options.hdrSourcePath ?? options.avifSourcePath;
-    if (this.shouldUseHdrImageAvifPreview(options, output) && hdrSourcePath) {
+    const hdrSourceMimeType = options.hdrSourceMimeType ?? (options.avifSourcePath ? 'image/avif' : undefined);
+    if (this.shouldUseHdrImageAvifPreview(options, output) && hdrSourcePath && hdrSourceMimeType) {
       try {
         await writeHdrImageAvifPreview({
           sourcePath: hdrSourcePath,
-          sourceMimeType: options.hdrSourceMimeType ?? (options.avifSourcePath ? 'image/avif' : undefined),
+          sourceMimeType: hdrSourceMimeType,
           outputPath: output,
           size: options.size,
           quality: options.quality,

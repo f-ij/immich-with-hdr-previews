@@ -42,6 +42,7 @@ import {
 } from 'src/types';
 import { getAssetFile, getDimensions } from 'src/utils/asset.util';
 import { checkFaceVisibility, checkOcrVisibility } from 'src/utils/editor';
+import { getHdrPreviewSourceMimeType } from 'src/utils/hdr-image-avif-preview';
 import { BaseConfig, ThumbnailConfig } from 'src/utils/media';
 import { mimeTypes } from 'src/utils/mime-types';
 import { clamp, isFaceImportEnabled, isFacialRecognitionEnabled } from 'src/utils/misc';
@@ -346,13 +347,9 @@ export class MediaService extends BaseService {
     const extractedImage = await this.extractOriginalImage(asset, image, useEdits);
     const { info, data, colorspace, highDynamicRange, generateFullsize, convertFullsize, extracted, isTransparent } =
       extractedImage;
-    const sourceMimeType = mimeTypes.lookup(asset.originalPath);
+    const sourceMimeType = getHdrPreviewSourceMimeType(mimeTypes.lookup(asset.originalPath));
     const useAvifHdrBypass =
-      image.avifHdrBypass &&
-      highDynamicRange &&
-      !useEdits &&
-      !extracted &&
-      this.isHdrAvifPreviewSource(sourceMimeType);
+      image.avifHdrBypass && highDynamicRange && !useEdits && !extracted && sourceMimeType !== undefined;
 
     const previewFormat = useAvifHdrBypass ? ImageFormat.Avif : image.preview.format;
     this.warnOnTransparencyLoss(isTransparent, previewFormat, asset.id);
@@ -386,7 +383,7 @@ export class MediaService extends BaseService {
     const avifHdrBypassOptions = useAvifHdrBypass
       ? {
           highDynamicRange: true,
-          hdrSourceMimeType: sourceMimeType || undefined,
+          hdrSourceMimeType: sourceMimeType,
           hdrSourcePath: asset.originalPath,
         }
       : undefined;
@@ -850,16 +847,6 @@ export class MediaService extends BaseService {
     const colorMetadata = [colorspace, profileDescription].filter(Boolean).join(' ').toLowerCase();
     return ['hdr', 'hlg', 'pq', 'rec.2020', 'rec2020', 'bt.2020', 'bt2020', 'smpte st 2084', 'arib std-b67'].some(
       (value) => colorMetadata.includes(value),
-    );
-  }
-
-  private isHdrAvifPreviewSource(mimeType: string | false) {
-    return (
-      mimeType === 'image/avif' ||
-      mimeType === 'image/jxl' ||
-      mimeType === 'image/heic' ||
-      mimeType === 'image/heif' ||
-      mimeType === 'image/hif'
     );
   }
 
