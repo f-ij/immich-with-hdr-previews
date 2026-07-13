@@ -1,4 +1,4 @@
-import { updateAsset } from '@immich/sdk';
+import { AssetTypeEnum, updateAsset } from '@immich/sdk';
 import { fireEvent, waitFor } from '@testing-library/svelte';
 import { getAnimateMock } from '$lib/__mocks__/animate.mock';
 import { getResizeObserverMock } from '$lib/__mocks__/resize-observer.mock';
@@ -49,6 +49,26 @@ describe('AssetViewer', () => {
 
   afterAll(() => {
     vi.restoreAllMocks();
+  });
+
+  it('toggles the top bar when the photo is clicked', async () => {
+    const asset = assetFactory.build({ type: AssetTypeEnum.Image });
+    const { getByTestId } = renderWithTooltips(AssetViewer, {
+      cursor: { current: asset },
+      showNavigation: false,
+    });
+    const navbar = getByTestId('asset-viewer-navbar');
+    const photoViewer = getByTestId('photo-viewer');
+
+    expect(navbar).not.toHaveClass('-translate-y-full');
+
+    await fireEvent.click(photoViewer);
+
+    expect(navbar).toHaveClass('-translate-y-full', 'opacity-0', 'pointer-events-none');
+
+    await fireEvent.click(photoViewer);
+
+    expect(navbar).not.toHaveClass('-translate-y-full');
   });
 
   it.skip('updates the top bar favorite action after pressing favorite', async () => {
