@@ -118,6 +118,7 @@ export class AssetJobRepository {
       .where(({ eb, or }) => {
         const colorMetadata = sql<string>`lower(concat_ws(' ', asset_exif.colorspace, asset_exif."profileDescription"))`;
         return or([
+          sql<boolean>`lower(asset."originalFileName") like '%.jxl'`,
           eb('asset_exif.bitsPerSample', '>', 8),
           eb(colorMetadata, 'like', '%hdr%'),
           eb(colorMetadata, 'like', '%hlg%'),

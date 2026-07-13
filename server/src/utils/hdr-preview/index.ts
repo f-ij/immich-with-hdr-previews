@@ -7,6 +7,7 @@ import {
   HdrPreviewSourceMimeType,
   HdrSourcePreviewOptions,
 } from 'src/utils/hdr-preview/types';
+export { hasHdrTransferMetadata } from 'src/utils/hdr-preview/probe';
 
 type HdrPreviewHandler = (options: HdrSourcePreviewOptions) => Promise<void>;
 

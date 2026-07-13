@@ -36,6 +36,8 @@ There is one source-format check, `getHdrPreviewSourceMimeType`, before Immich r
 
 The AVIF source handler uses FFmpeg to assemble tiled originals and resize to 10-bit Y4M. The JXL and HEIF handlers use the runtime's libvips decoders to resize into a 16-bit RGB intermediate. All handlers finish with `avifenc` and explicit 10-bit HDR CICP signaling.
 
+ExifTool does not expose the HDR bit depth or profile for every JPEG XL file. When the normal Immich metadata check is inconclusive for a supported source, the routing hook uses the existing FFprobe repository method as a fallback and accepts PQ or HLG transfer metadata. This probe is skipped when the feature is disabled or Immich has already identified the image as HDR.
+
 The runtime dependency for this is:
 
 - `libavif-bin`
@@ -63,7 +65,7 @@ When `image.avifHdrBypass` changes from `false` to `true`, the media service que
 That job scans for image assets where:
 
 - the original filename ends in `.avif`, `.jxl`, `.heic`, `.heif`, or `.hif`
-- the asset appears HDR according to the same metadata rules used by thumbnail generation
+- the asset appears HDR according to the normal stored metadata rules, or is a JPEG XL candidate whose HDR metadata must be checked at generation time
 
 Matching assets are queued through the existing `AssetGenerateThumbnails` job.
 

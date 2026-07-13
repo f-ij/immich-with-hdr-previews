@@ -184,7 +184,8 @@ where
   and "asset"."type" = 'IMAGE'
   and lower(asset."originalFileName") like any (array['%.avif', '%.jxl', '%.heic', '%.heif', '%.hif']::text[])
   and (
-    "asset_exif"."bitsPerSample" > $1
+    lower(asset."originalFileName") like '%.jxl'
+    or "asset_exif"."bitsPerSample" > $1
     or lower(
       concat_ws(
         ' ',
