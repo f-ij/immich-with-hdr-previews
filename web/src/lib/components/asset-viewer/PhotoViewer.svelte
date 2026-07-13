@@ -1,5 +1,6 @@
 <script lang="ts">
   import { shortcuts } from '$lib/actions/shortcut';
+  import { singleClick } from '$lib/actions/single-click';
   import { zoomImageAction } from '$lib/actions/zoom-image';
   import AdaptiveImage from '$lib/components/AdaptiveImage.svelte';
   import FaceEditor from '$lib/components/asset-viewer/face-editor/FaceEditor.svelte';
@@ -31,9 +32,10 @@
     onReady?: () => void;
     onError?: () => void;
     onSwipe?: (event: SwipeCustomEvent) => void;
+    onClick?: () => void;
   };
 
-  let { cursor, element = $bindable(), sharedLink, onReady, onError, onSwipe }: Props = $props();
+  let { cursor, element = $bindable(), sharedLink, onReady, onError, onSwipe, onClick }: Props = $props();
 
   const { slideshowState, slideshowLook } = slideshowStore;
   const asset = $derived(cursor.current);
@@ -215,8 +217,10 @@
   class="relative size-full select-none"
   bind:clientWidth={containerWidth}
   bind:clientHeight={containerHeight}
+  data-testid="photo-viewer"
   role="presentation"
   ondblclick={onZoom}
+  use:singleClick={onClick}
   use:zoomImageAction={{ zoomTarget: adaptiveImage }}
   {...useSwipe((event) => onSwipe?.(event))}
 >
