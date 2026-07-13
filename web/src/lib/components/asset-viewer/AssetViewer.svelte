@@ -24,6 +24,7 @@
   import { navigateToAsset } from '$lib/utils/asset-utils';
   import { handleError } from '$lib/utils/handle-error';
   import { InvocationTracker } from '$lib/utils/invocationTracker';
+  import { addIphoneSafariScrollRunway } from '$lib/utils/ios-safari-scroll-runway';
   import { SlideshowHistory } from '$lib/utils/slideshow-history';
   import { toTimelineAsset } from '$lib/utils/timeline-util';
   import {
@@ -151,6 +152,7 @@
 
   onMount(() => {
     syncAssetViewerOpenClass(true);
+    const removeIphoneSafariScrollRunway = addIphoneSafariScrollRunway();
     const slideshowStateUnsubscribe = slideshowState.subscribe((value) => {
       if (value === SlideshowState.PlaySlideshow) {
         slideshowHistory.reset();
@@ -169,6 +171,7 @@
     });
 
     return () => {
+      removeIphoneSafariScrollRunway();
       slideshowStateUnsubscribe();
       slideshowNavigationUnsubscribe();
     };
