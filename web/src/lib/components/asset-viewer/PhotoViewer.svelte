@@ -1,5 +1,6 @@
 <script lang="ts">
   import { shortcuts } from '$lib/actions/shortcut';
+  import { swipe, type SwipeEvent } from '$lib/actions/swipe';
   import { zoomImageAction } from '$lib/actions/zoom-image';
   import AdaptiveImage from '$lib/components/AdaptiveImage.svelte';
   import FaceEditor from '$lib/components/asset-viewer/face-editor/FaceEditor.svelte';
@@ -20,7 +21,6 @@
   import { type SharedLinkResponseDto } from '@immich/sdk';
   import { toastManager } from '@immich/ui';
   import { onDestroy, untrack } from 'svelte';
-  import { useSwipe, type SwipeCustomEvent } from 'svelte-gestures';
   import { t } from 'svelte-i18n';
   import type { AssetCursor } from './AssetViewer.svelte';
 
@@ -30,7 +30,7 @@
     sharedLink?: SharedLinkResponseDto;
     onReady?: () => void;
     onError?: () => void;
-    onSwipe?: (event: SwipeCustomEvent) => void;
+    onSwipe?: (event: SwipeEvent) => void;
   };
 
   let { cursor, element = $bindable(), sharedLink, onReady, onError, onSwipe }: Props = $props();
@@ -218,7 +218,7 @@
   role="presentation"
   ondblclick={onZoom}
   use:zoomImageAction={{ zoomTarget: adaptiveImage }}
-  {...useSwipe((event) => onSwipe?.(event))}
+  use:swipe={{ onSwipe }}
 >
   <AdaptiveImage
     {asset}
