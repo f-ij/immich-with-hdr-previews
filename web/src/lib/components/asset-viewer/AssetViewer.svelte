@@ -115,6 +115,7 @@
   let isPlayingOriginalVideo = $state($alwaysLoadOriginalVideo);
   let slideshowStartAssetId = $state<string>();
   const allowVerticalPageScroll = browser && isIphoneSafariTab();
+  let areViewerControlsVisible = $state(true);
 
   const setPlayOriginalVideo = (value: boolean) => {
     isPlayingOriginalVideo = value;
@@ -498,7 +499,15 @@
 >
   <!-- Top navigation bar -->
   {#if $slideshowState === SlideshowState.None && !assetViewerManager.isShowEditor}
-    <div class="col-span-4 col-start-1 row-span-1 row-start-1 transition-transform">
+    <div
+      data-testid="asset-viewer-navbar"
+      class={[
+        'col-span-4 col-start-1 row-span-1 row-start-1 transition-[transform,opacity] duration-200',
+        { '-translate-y-full opacity-0 pointer-events-none': !areViewerControlsVisible },
+      ]}
+      aria-hidden={!areViewerControlsVisible}
+      inert={!areViewerControlsVisible}
+    >
       <AssetViewerNavBar
         {asset}
         {album}
@@ -566,7 +575,13 @@
     {:else if viewerKind === 'CropArea'}
       <CropArea {asset} />
     {:else if viewerKind === 'PhotoViewer'}
-      <PhotoViewer cursor={{ ...cursor, current: asset }} {sharedLink} {onSwipe} {allowVerticalPageScroll} />
+      <PhotoViewer
+        cursor={{ ...cursor, current: asset }}
+        {sharedLink}
+        {onSwipe}
+        {allowVerticalPageScroll}
+        onClick={() => (areViewerControlsVisible = !areViewerControlsVisible)}
+      />
     {:else if viewerKind === 'VideoViewer'}
       <VideoViewer
         {asset}

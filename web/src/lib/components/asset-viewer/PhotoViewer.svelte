@@ -1,5 +1,6 @@
 <script lang="ts">
   import { shortcuts } from '$lib/actions/shortcut';
+  import { singleClick } from '$lib/actions/single-click';
   import { zoomImageAction } from '$lib/actions/zoom-image';
   import AdaptiveImage from '$lib/components/AdaptiveImage.svelte';
   import FaceEditor from '$lib/components/asset-viewer/face-editor/FaceEditor.svelte';
@@ -32,6 +33,7 @@
     onError?: () => void;
     onSwipe?: (event: SwipeCustomEvent) => void;
     allowVerticalPageScroll?: boolean;
+    onClick?: () => void;
   };
 
   let {
@@ -42,6 +44,7 @@
     onError,
     onSwipe,
     allowVerticalPageScroll = false,
+    onClick,
   }: Props = $props();
 
   const { slideshowState, slideshowLook } = slideshowStore;
@@ -226,8 +229,10 @@
   class="relative size-full select-none"
   bind:clientWidth={containerWidth}
   bind:clientHeight={containerHeight}
+  data-testid="photo-viewer"
   role="presentation"
   ondblclick={onZoom}
+  use:singleClick={onClick}
   use:zoomImageAction={{ zoomTarget: adaptiveImage, touchAction: viewerTouchAction, shouldZoomOnSingleTouch }}
   {...useSwipe(
     (event) => onSwipe?.(event),
