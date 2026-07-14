@@ -101,6 +101,7 @@
     removeAction={AssetAction.ARCHIVE}
     onEscape={handleEscape}
     withStacked
+    collapseSafariBars
   >
     {#if authManager.preferences.memories.enabled}
       <ImageCarousel {items} />
