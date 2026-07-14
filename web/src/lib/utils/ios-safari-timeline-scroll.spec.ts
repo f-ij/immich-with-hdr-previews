@@ -10,20 +10,18 @@ const iphoneSafari = {
 const addTimeline = () => {
   const root = document.createElement('div');
   root.dataset.testTimelineRoot = '';
-  const pageScrollContainer = document.createElement('main');
-  pageScrollContainer.dataset.userPageScrollContainer = '';
-  pageScrollContainer.style.overflowY = 'auto';
+  const pageLayout = document.createElement('main');
+  pageLayout.dataset.userPageLayout = '';
   const timeline = document.createElement('section');
   timeline.style.overflowY = 'auto';
-  pageScrollContainer.append(timeline);
-  root.append(pageScrollContainer);
+  pageLayout.append(timeline);
+  root.append(pageLayout);
   document.body.append(root);
-  return { root, pageScrollContainer, timeline };
+  return { root, pageLayout, timeline };
 };
 
 afterEach(() => {
   document.documentElement.classList.remove('ios-safari-timeline-scroll', 'ios-safari-viewer-scroll');
-  document.body.style.removeProperty('--ios-safari-timeline-scroll-range');
   for (const root of document.querySelectorAll('[data-test-timeline-root]')) {
     root.remove();
   }
@@ -32,74 +30,86 @@ afterEach(() => {
 });
 
 describe(enableIphoneSafariTimelineScroll.name, () => {
-  it('mirrors native page scrolling into the virtual timeline and restores the page', () => {
-    const { root, pageScrollContainer, timeline } = addTimeline();
+  it('uses native page scrolling without mirroring each event into the timeline', () => {
+    const { pageLayout, timeline } = addTimeline();
     timeline.scrollTop = 41;
     vi.stubGlobal('scrollX', 17);
     vi.stubGlobal('scrollY', 29);
     const scrollTo = vi.spyOn(globalThis, 'scrollTo').mockImplementation(() => {});
+    const onScroll = vi.fn();
+    const onActiveChange = vi.fn();
 
-    const controller = enableIphoneSafariTimelineScroll(timeline, 500, iphoneSafari);
+    const controller = enableIphoneSafariTimelineScroll(
+      timeline,
+      { enabled: true, scrollRange: 500, onScroll, onActiveChange },
+      iphoneSafari,
+    );
 
     expect(document.documentElement).toHaveClass('ios-safari-timeline-scroll');
-    expect(document.body.style.getPropertyValue('--ios-safari-timeline-scroll-range')).toBe('500px');
-    expect(root).toHaveAttribute('data-ios-safari-timeline-scroll-root');
-    expect(timeline.style.overflowY).toBe('hidden');
-    expect(pageScrollContainer.style.overflowY).toBe('hidden');
+    expect(pageLayout.style.getPropertyValue('--ios-safari-timeline-scroll-range')).toBe('500px');
+    expect(timeline.style.overflowY).toBe('auto');
+    expect(onActiveChange).toHaveBeenCalledWith(true, 41);
     expect(scrollTo).toHaveBeenLastCalledWith(0, 41);
 
     vi.stubGlobal('scrollY', 120);
     globalThis.dispatchEvent(new Event('scroll'));
-    expect(timeline.scrollTop).toBe(120);
+    expect(onScroll).toHaveBeenCalledOnce();
+    expect(timeline.scrollTop).toBe(41);
 
-    vi.stubGlobal('scrollY', 120);
-    timeline.scrollTop = 240;
-    timeline.dispatchEvent(new Event('scroll'));
-    expect(scrollTo).toHaveBeenLastCalledWith(0, 240);
-
-    controller.update(750);
-    expect(document.body.style.getPropertyValue('--ios-safari-timeline-scroll-range')).toBe('750px');
+    controller.update({ enabled: true, scrollRange: 750, onScroll, onActiveChange });
+    expect(pageLayout.style.getPropertyValue('--ios-safari-timeline-scroll-range')).toBe('750px');
 
     controller.destroy();
 
     expect(document.documentElement).not.toHaveClass('ios-safari-timeline-scroll');
-    expect(document.body.style.getPropertyValue('--ios-safari-timeline-scroll-range')).toBe('');
-    expect(root).not.toHaveAttribute('data-ios-safari-timeline-scroll-root');
-    expect(timeline.style.overflowY).toBe('auto');
-    expect(pageScrollContainer.style.overflowY).toBe('auto');
+    expect(pageLayout.style.getPropertyValue('--ios-safari-timeline-scroll-range')).toBe('');
+    expect(onActiveChange).toHaveBeenLastCalledWith(false, 120);
     expect(scrollTo).toHaveBeenLastCalledWith(17, 29);
   });
 
-  it('suspends synchronization while the asset viewer owns document scrolling', () => {
+  it('suspends timeline updates while the asset viewer owns document scrolling', () => {
     const { root, timeline } = addTimeline();
+    timeline.scrollTop = 300;
     const viewer = document.createElement('section');
     root.append(viewer);
     vi.stubGlobal('scrollX', 0);
     vi.stubGlobal('scrollY', 100);
     const scrollTo = vi.spyOn(globalThis, 'scrollTo').mockImplementation(() => {});
-    const controller = enableIphoneSafariTimelineScroll(timeline, 500, iphoneSafari);
+    const onScroll = vi.fn();
+    const onActiveChange = vi.fn();
+    const controller = enableIphoneSafariTimelineScroll(
+      timeline,
+      { enabled: true, scrollRange: 500, onScroll, onActiveChange },
+      iphoneSafari,
+    );
     const disableViewerScroll = enableIphoneSafariViewerScroll(viewer, iphoneSafari);
-    scrollTo.mockClear();
+    onScroll.mockClear();
 
-    timeline.scrollTop = 300;
-    timeline.dispatchEvent(new Event('scroll'));
-    expect(scrollTo).not.toHaveBeenCalled();
+    globalThis.dispatchEvent(new Event('scroll'));
+    expect(onScroll).not.toHaveBeenCalled();
 
     disableViewerScroll();
+    expect(onScroll).toHaveBeenCalledOnce();
     expect(scrollTo).toHaveBeenLastCalledWith(0, 300);
 
     controller.destroy();
   });
 
   it('does nothing outside a normal iPhone Safari tab', () => {
-    const { root, pageScrollContainer, timeline } = addTimeline();
+    const { pageLayout, timeline } = addTimeline();
     const scrollTo = vi.spyOn(globalThis, 'scrollTo').mockImplementation(() => {});
-    const controller = enableIphoneSafariTimelineScroll(timeline, 500, { ...iphoneSafari, standalone: true });
+    const onScroll = vi.fn();
+    const onActiveChange = vi.fn();
+    const controller = enableIphoneSafariTimelineScroll(
+      timeline,
+      { enabled: true, scrollRange: 500, onScroll, onActiveChange },
+      { ...iphoneSafari, standalone: true },
+    );
 
     expect(document.documentElement).not.toHaveClass('ios-safari-timeline-scroll');
-    expect(root).not.toHaveAttribute('data-ios-safari-timeline-scroll-root');
-    expect(timeline.style.overflowY).toBe('auto');
-    expect(pageScrollContainer.style.overflowY).toBe('auto');
+    expect(pageLayout.style.getPropertyValue('--ios-safari-timeline-scroll-range')).toBe('');
+    expect(onScroll).not.toHaveBeenCalled();
+    expect(onActiveChange).not.toHaveBeenCalled();
     expect(scrollTo).not.toHaveBeenCalled();
     controller.destroy();
   });

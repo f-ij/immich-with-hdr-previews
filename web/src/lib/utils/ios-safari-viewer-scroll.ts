@@ -11,9 +11,8 @@ const VIEWER_SCROLL_CLASS = 'ios-safari-viewer-scroll';
 const VIEWER_SCROLL_ROOT_ATTRIBUTE = 'data-ios-safari-viewer-scroll-root';
 const VIEWER_SCROLL_RELEASED_EVENT = 'immich:iphone-safari-viewer-scroll-released';
 const TIMELINE_SCROLL_CLASS = 'ios-safari-timeline-scroll';
-const TIMELINE_SCROLL_ROOT_ATTRIBUTE = 'data-ios-safari-timeline-scroll-root';
 const TIMELINE_SCROLL_RANGE_PROPERTY = '--ios-safari-timeline-scroll-range';
-const USER_PAGE_SCROLL_CONTAINER_SELECTOR = '[data-user-page-scroll-container]';
+const USER_PAGE_LAYOUT_SELECTOR = '[data-user-page-layout]';
 
 const getEnvironment = (): IphoneSafariEnvironment => ({
   userAgent: navigator.userAgent,
@@ -67,10 +66,12 @@ export const enableIphoneSafariViewerScroll = (
 export type IphoneSafariTimelineScrollOptions = {
   enabled: boolean;
   scrollRange: number;
+  onScroll: () => void;
+  onActiveChange: (active: boolean, scrollTop: number) => void;
 };
 
 type IphoneSafariTimelineScrollController = {
-  update: (scrollRange: number) => void;
+  update: (options: IphoneSafariTimelineScrollOptions) => void;
   destroy: () => void;
 };
 
@@ -83,84 +84,66 @@ const normalizeScrollRange = (scrollRange: number) => (Number.isFinite(scrollRan
 
 export const enableIphoneSafariTimelineScroll = (
   timeline: HTMLElement,
-  initialScrollRange: number,
+  initialOptions: IphoneSafariTimelineScrollOptions,
   environment: IphoneSafariEnvironment = getEnvironment(),
 ): IphoneSafariTimelineScrollController => {
   if (!isIphoneSafariTab(environment)) {
     return noTimelineScrollController();
   }
 
-  const pageRoot = getPageRoot(timeline);
-  if (!pageRoot) {
+  const pageLayout = timeline.closest(USER_PAGE_LAYOUT_SELECTOR) as HTMLElement | null;
+  if (!pageLayout || !document.body.contains(pageLayout)) {
     return noTimelineScrollController();
   }
 
-  const pageScrollContainer = timeline.closest(USER_PAGE_SCROLL_CONTAINER_SELECTOR) as HTMLElement | null;
   const documentElement = document.documentElement;
   const { scrollX, scrollY } = globalThis;
-  const timelineOverflowY = timeline.style.overflowY;
-  const pageOverflowY = pageScrollContainer?.style.overflowY;
-  let scrollRange = -1;
+  const previousScrollRange = pageLayout.style.getPropertyValue(TIMELINE_SCROLL_RANGE_PROPERTY);
+  let options = initialOptions;
+  let scrollRange = normalizeScrollRange(options.scrollRange);
+  let lastScrollTop = Math.max(0, timeline.scrollTop);
 
-  const syncTimelineFromPage = () => {
+  const handlePageScroll = () => {
     if (documentElement.classList.contains(VIEWER_SCROLL_CLASS)) {
       return;
     }
 
-    const top = Math.min(Math.max(globalThis.scrollY, 0), scrollRange);
-    if (Math.abs(timeline.scrollTop - top) > 0.5) {
-      timeline.scrollTop = top;
-    }
+    lastScrollTop = Math.min(Math.max(globalThis.scrollY, 0), scrollRange);
+    options.onScroll();
   };
 
-  const syncPageFromTimeline = () => {
-    if (documentElement.classList.contains(VIEWER_SCROLL_CLASS)) {
-      return;
-    }
+  const handleViewerReleased = () => {
+    globalThis.scrollTo(0, lastScrollTop);
+    options.onScroll();
+  };
 
-    const top = Math.min(Math.max(timeline.scrollTop, 0), scrollRange);
-    if (Math.abs(globalThis.scrollY - top) > 0.5) {
-      globalThis.scrollTo(0, top);
-    }
+  const setScrollRange = (nextScrollRange: number) => {
+    scrollRange = normalizeScrollRange(nextScrollRange);
+    pageLayout.style.setProperty(TIMELINE_SCROLL_RANGE_PROPERTY, `${scrollRange}px`);
   };
 
   documentElement.classList.add(TIMELINE_SCROLL_CLASS);
-  pageRoot.setAttribute(TIMELINE_SCROLL_ROOT_ATTRIBUTE, '');
-  timeline.style.overflowY = 'hidden';
-  if (pageScrollContainer) {
-    pageScrollContainer.style.overflowY = 'hidden';
-  }
-
-  globalThis.addEventListener('scroll', syncTimelineFromPage, { passive: true });
-  globalThis.addEventListener(VIEWER_SCROLL_RELEASED_EVENT, syncPageFromTimeline);
-  timeline.addEventListener('scroll', syncPageFromTimeline, { passive: true });
-
-  const update = (nextScrollRange: number) => {
-    const normalizedRange = normalizeScrollRange(nextScrollRange);
-    if (normalizedRange === scrollRange) {
-      return;
-    }
-
-    scrollRange = normalizedRange;
-    document.body.style.setProperty(TIMELINE_SCROLL_RANGE_PROPERTY, `${scrollRange}px`);
-    syncPageFromTimeline();
-  };
-
-  update(initialScrollRange);
+  setScrollRange(scrollRange);
+  globalThis.addEventListener('scroll', handlePageScroll, { passive: true });
+  globalThis.addEventListener(VIEWER_SCROLL_RELEASED_EVENT, handleViewerReleased);
+  options.onActiveChange(true, lastScrollTop);
+  globalThis.scrollTo(0, lastScrollTop);
 
   return {
-    update,
+    update: (nextOptions) => {
+      options = nextOptions;
+      setScrollRange(options.scrollRange);
+    },
     destroy: () => {
-      globalThis.removeEventListener('scroll', syncTimelineFromPage);
-      globalThis.removeEventListener(VIEWER_SCROLL_RELEASED_EVENT, syncPageFromTimeline);
-      timeline.removeEventListener('scroll', syncPageFromTimeline);
+      globalThis.removeEventListener('scroll', handlePageScroll);
+      globalThis.removeEventListener(VIEWER_SCROLL_RELEASED_EVENT, handleViewerReleased);
       documentElement.classList.remove(TIMELINE_SCROLL_CLASS);
-      pageRoot.removeAttribute(TIMELINE_SCROLL_ROOT_ATTRIBUTE);
-      document.body.style.removeProperty(TIMELINE_SCROLL_RANGE_PROPERTY);
-      timeline.style.overflowY = timelineOverflowY;
-      if (pageScrollContainer) {
-        pageScrollContainer.style.overflowY = pageOverflowY ?? '';
+      if (previousScrollRange) {
+        pageLayout.style.setProperty(TIMELINE_SCROLL_RANGE_PROPERTY, previousScrollRange);
+      } else {
+        pageLayout.style.removeProperty(TIMELINE_SCROLL_RANGE_PROPERTY);
       }
+      options.onActiveChange(false, lastScrollTop);
       globalThis.scrollTo(scrollX, scrollY);
     },
   };
@@ -172,15 +155,18 @@ export const iphoneSafariTimelineScroll: Action<HTMLElement, IphoneSafariTimelin
 ) => {
   let controller: IphoneSafariTimelineScrollController | undefined;
 
-  const update = ({ enabled, scrollRange }: IphoneSafariTimelineScrollOptions) => {
-    if (!enabled) {
+  const update = (nextOptions: IphoneSafariTimelineScrollOptions) => {
+    if (!nextOptions.enabled) {
       controller?.destroy();
       controller = undefined;
       return;
     }
 
-    controller ??= enableIphoneSafariTimelineScroll(timeline, scrollRange);
-    controller.update(scrollRange);
+    if (controller) {
+      controller.update(nextOptions);
+    } else {
+      controller = enableIphoneSafariTimelineScroll(timeline, nextOptions);
+    }
   };
 
   update(options);
