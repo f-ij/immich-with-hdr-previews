@@ -182,9 +182,17 @@ where
   "asset"."deletedAt" is null
   and "asset"."visibility" != 'hidden'
   and "asset"."type" = 'IMAGE'
-  and lower(asset."originalFileName") like $1
+  and lower(asset."originalFileName") like any (array['%.avif', '%.jxl', '%.heic', '%.heif', '%.hif']::text[])
   and (
-    "asset_exif"."bitsPerSample" > $2
+    lower(asset."originalFileName") like '%.jxl'
+    or "asset_exif"."bitsPerSample" > $1
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $2
     or lower(
       concat_ws(
         ' ',
@@ -241,13 +249,6 @@ where
         asset_exif."profileDescription"
       )
     ) like $10
-    or lower(
-      concat_ws(
-        ' ',
-        asset_exif.colorspace,
-        asset_exif."profileDescription"
-      )
-    ) like $11
   )
 
 -- AssetJobRepository.getForMigrationJob

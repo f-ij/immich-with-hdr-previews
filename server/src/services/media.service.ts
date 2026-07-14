@@ -42,6 +42,7 @@ import {
 } from 'src/types';
 import { getAssetFile, getDimensions } from 'src/utils/asset.util';
 import { checkFaceVisibility, checkOcrVisibility } from 'src/utils/editor';
+import { getHdrPreviewSourceMimeType, hasHdrTransferMetadata } from 'src/utils/hdr-image-avif-preview';
 import { BaseConfig, ThumbnailConfig } from 'src/utils/media';
 import { mimeTypes } from 'src/utils/mime-types';
 import { clamp, isFaceImportEnabled, isFacialRecognitionEnabled } from 'src/utils/misc';
@@ -346,12 +347,18 @@ export class MediaService extends BaseService {
     const extractedImage = await this.extractOriginalImage(asset, image, useEdits);
     const { info, data, colorspace, highDynamicRange, generateFullsize, convertFullsize, extracted, isTransparent } =
       extractedImage;
+    const sourceMimeType = getHdrPreviewSourceMimeType(mimeTypes.lookup(asset.originalPath));
+    let sourceHighDynamicRange = highDynamicRange;
+    if (image.avifHdrBypass && !sourceHighDynamicRange && !useEdits && !extracted && sourceMimeType !== undefined) {
+      try {
+        sourceHighDynamicRange = hasHdrTransferMetadata(await this.mediaRepository.probe(asset.originalPath));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Could not probe HDR metadata for ${asset.originalPath}: ${message}`);
+      }
+    }
     const useAvifHdrBypass =
-      image.avifHdrBypass &&
-      highDynamicRange &&
-      !useEdits &&
-      !extracted &&
-      mimeTypes.lookup(asset.originalPath) === 'image/avif';
+      image.avifHdrBypass && sourceHighDynamicRange && !useEdits && !extracted && sourceMimeType !== undefined;
 
     const previewFormat = useAvifHdrBypass ? ImageFormat.Avif : image.preview.format;
     this.warnOnTransparencyLoss(isTransparent, previewFormat, asset.id);
@@ -383,7 +390,11 @@ export class MediaService extends BaseService {
       edits: useEdits ? asset.edits : [],
     };
     const avifHdrBypassOptions = useAvifHdrBypass
-      ? { highDynamicRange: true, avifSourcePath: asset.originalPath }
+      ? {
+          highDynamicRange: true,
+          hdrSourceMimeType: sourceMimeType,
+          hdrSourcePath: asset.originalPath,
+        }
       : undefined;
     const thumbnailOptions = {
       ...image.thumbnail,
