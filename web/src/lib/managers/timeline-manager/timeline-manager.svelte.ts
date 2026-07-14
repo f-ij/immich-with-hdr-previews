@@ -40,6 +40,12 @@ import type {
   Viewport,
 } from './types';
 
+export type TimelineScrollTarget = {
+  readonly scrollTop: number;
+  scrollTo: (options: ScrollToOptions) => void;
+  scrollBy: (options: ScrollToOptions) => void;
+};
+
 type ViewportTopMonthIntersection = {
   month: TimelineMonth | undefined;
   // Where viewport top intersects month (0 = month top, 1 = month bottom)
@@ -93,7 +99,7 @@ export class TimelineManager extends VirtualScrollManager {
   #websocketSupport: WebsocketSupport | undefined;
   #options: TimelineManagerOptions = TimelineManager.#INIT_OPTIONS;
   #updatingViewportProximities = false;
-  #scrollableElement: HTMLElement | undefined = $state();
+  #scrollableElement: TimelineScrollTarget | undefined = $state();
   #showAssetOwners = new PersistedLocalStorage<boolean>('album-show-asset-owners', false);
   #unsubscribes: Array<() => void> = [];
 
@@ -123,7 +129,7 @@ export class TimelineManager extends VirtualScrollManager {
     return this.#scrollableElement?.scrollTop ?? 0;
   }
 
-  set scrollableElement(element: HTMLElement | undefined) {
+  set scrollableElement(element: TimelineScrollTarget | undefined) {
     this.#scrollableElement = element;
   }
 
@@ -132,8 +138,8 @@ export class TimelineManager extends VirtualScrollManager {
     this.updateSlidingWindow();
   }
 
-  scrollBy(y: number) {
-    this.#scrollableElement?.scrollBy(0, y);
+  scrollBy(y: number, behavior: ScrollBehavior = 'auto') {
+    this.#scrollableElement?.scrollBy({ top: y, behavior });
     this.updateSlidingWindow();
   }
 

@@ -46,12 +46,13 @@
   let hasTitleClass = $derived(title ? 'top-16 h-[calc(100%-(--spacing(16)))]' : 'top-0 h-full');
 </script>
 
-<header>
+<header data-user-page-navbar>
   {#if !hideNavbar}
     <NavigationBar onUploadClick={() => openFileUploadDialog()} />
   {/if}
 </header>
 <div
+  data-user-page-layout
   tabindex="-1"
   class="relative z-0 grid grid-cols-[--spacing(0)_auto] overflow-hidden sidebar:grid-cols-[--spacing(64)_auto]
     {hideNavbar ? 'h-dvh' : 'h-[calc(100dvh-var(--navbar-height))] max-md:h-[calc(100dvh-var(--navbar-height-md))]'}
@@ -65,7 +66,11 @@
   {/if}
 
   <main class="relative">
-    <div class="{scrollbarClass} absolute {hasTitleClass} w-full overflow-y-auto p-2" use:useActions={use}>
+    <div
+      data-user-page-scroll-container
+      class="{scrollbarClass} absolute {hasTitleClass} w-full overflow-y-auto p-2"
+      use:useActions={use}
+    >
       {@render children?.()}
     </div>
 
