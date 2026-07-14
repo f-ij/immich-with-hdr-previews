@@ -385,6 +385,7 @@ const SystemConfigGeneratedFullsizeImageSchema = z
 
 const SystemConfigImageSchema = z
   .object({
+    avifHdrBypass: configBool.describe('AVIF HDR bypass'),
     thumbnail: SystemConfigGeneratedImageSchema,
     preview: SystemConfigGeneratedImageSchema,
     fullsize: SystemConfigGeneratedFullsizeImageSchema,

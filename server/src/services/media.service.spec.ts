@@ -48,6 +48,51 @@ describe(MediaService.name, () => {
     expect(sut).toBeDefined();
   });
 
+  describe('onConfigUpdate', () => {
+    it('should queue the HDR AVIF thumbnail backfill when the bypass is enabled', async () => {
+      await sut.onConfigUpdate({
+        oldConfig: { image: { avifHdrBypass: false } } as SystemConfig,
+        newConfig: { image: { avifHdrBypass: true } } as SystemConfig,
+      });
+
+      expect(mocks.job.queue).toHaveBeenCalledWith({ name: JobName.AssetGenerateAvifHdrThumbnailsQueueAll });
+    });
+
+    it('should not queue the HDR AVIF thumbnail backfill when the bypass was already enabled', async () => {
+      await sut.onConfigUpdate({
+        oldConfig: { image: { avifHdrBypass: true } } as SystemConfig,
+        newConfig: { image: { avifHdrBypass: true } } as SystemConfig,
+      });
+
+      expect(mocks.job.queue).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleQueueGenerateAvifHdrThumbnails', () => {
+    it('should queue thumbnails for matching HDR AVIF assets', async () => {
+      const assets = [{ id: factory.uuid() }, { id: factory.uuid() }];
+      mocks.systemMetadata.get.mockResolvedValue({ image: { avifHdrBypass: true } });
+      mocks.assetJob.streamForAvifHdrBypassThumbnailJob.mockReturnValue(makeStream(assets));
+
+      await sut.handleQueueGenerateAvifHdrThumbnails();
+
+      expect(mocks.assetJob.streamForAvifHdrBypassThumbnailJob).toHaveBeenCalled();
+      expect(mocks.job.queueAll).toHaveBeenCalledWith([
+        { name: JobName.AssetGenerateThumbnails, data: { id: assets[0].id } },
+        { name: JobName.AssetGenerateThumbnails, data: { id: assets[1].id } },
+      ]);
+    });
+
+    it('should skip when the HDR AVIF bypass is disabled', async () => {
+      mocks.systemMetadata.get.mockResolvedValue({ image: { avifHdrBypass: false } });
+
+      await expect(sut.handleQueueGenerateAvifHdrThumbnails()).resolves.toBe(JobStatus.Skipped);
+
+      expect(mocks.assetJob.streamForAvifHdrBypassThumbnailJob).not.toHaveBeenCalled();
+      expect(mocks.job.queueAll).not.toHaveBeenCalled();
+    });
+  });
+
   // TODO these should all become medium tests of either the service or the repository.
   // The entire logic of what to queue lives in the SQL query now
   describe('handleQueueGenerateThumbnails', () => {
@@ -735,6 +780,64 @@ describe(MediaService.name, () => {
           edits: [],
         },
         thumbnailPath,
+      );
+    });
+
+    it('should encode AVIF previews as HDR when image metadata is high bit depth', async () => {
+      const asset = AssetFactory.from().exif({ bitsPerSample: 10, profileDescription: 'Display P3 HDR' }).build();
+      mocks.systemMetadata.get.mockResolvedValue({ image: { preview: { format: ImageFormat.Avif } } });
+      mocks.assetJob.getForGenerateThumbnailJob.mockResolvedValue(getForGenerateThumbnail(asset));
+
+      await sut.handleGenerateThumbnails({ id: asset.id });
+
+      expect(mocks.media.decodeImage).toHaveBeenCalledWith(asset.originalPath, {
+        colorspace: Colorspace.P3,
+        processInvalidImages: false,
+        size: 1440,
+      });
+      expect(mocks.media.generateThumbnail).toHaveBeenCalledWith(
+        rawBuffer,
+        expect.objectContaining({
+          format: ImageFormat.Avif,
+          highDynamicRange: true,
+        }),
+        expect.stringContaining('preview.avif'),
+      );
+    });
+
+    it('should bypass normal formats for HDR AVIF preview and thumbnail generation when enabled', async () => {
+      const asset = AssetFactory.from({
+        originalFileName: 'IMG_1234.avif',
+        originalPath: '/data/library/IMG_1234.avif',
+      })
+        .exif({ bitsPerSample: 10, profileDescription: 'BT.2020 PQ' })
+        .build();
+      mocks.systemMetadata.get.mockResolvedValue({ image: { avifHdrBypass: true } });
+      mocks.assetJob.getForGenerateThumbnailJob.mockResolvedValue(getForGenerateThumbnail(asset));
+
+      await sut.handleGenerateThumbnails({ id: asset.id });
+
+      expect(mocks.media.generateThumbnail).toHaveBeenCalledWith(
+        rawBuffer,
+        expect.objectContaining({
+          avifSourcePath: asset.originalPath,
+          format: ImageFormat.Avif,
+          highDynamicRange: true,
+          quality: 80,
+          size: 250,
+        }),
+        expect.stringContaining('thumbnail.avif'),
+      );
+      expect(mocks.media.generateThumbnail).toHaveBeenCalledWith(
+        rawBuffer,
+        expect.objectContaining({
+          avifSourcePath: asset.originalPath,
+          format: ImageFormat.Avif,
+          highDynamicRange: true,
+          quality: 80,
+          size: 1440,
+        }),
+        expect.stringContaining('preview.avif'),
       );
     });
 
@@ -3841,6 +3944,22 @@ describe(MediaService.name, () => {
     it('should return true for 16-bit image with sRGB profile', () => {
       expect(sut.isSRGB({ profileDescription: 'sRGB', bitsPerSample: 16 } as ShallowDehydrateObject<Exif>)).toEqual(
         true,
+      );
+    });
+  });
+
+  describe('isHDRImage', () => {
+    it('should return true for high bit depth images', () => {
+      expect(sut.isHDRImage({ bitsPerSample: 10 } as ShallowDehydrateObject<Exif>)).toEqual(true);
+    });
+
+    it('should return true for HDR transfer/profile metadata', () => {
+      expect(sut.isHDRImage({ profileDescription: 'BT.2020 HLG' } as ShallowDehydrateObject<Exif>)).toEqual(true);
+    });
+
+    it('should return false for standard 8-bit images', () => {
+      expect(sut.isHDRImage({ bitsPerSample: 8, profileDescription: 'sRGB' } as ShallowDehydrateObject<Exif>)).toEqual(
+        false,
       );
     });
   });

@@ -1,8 +1,11 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import sharp from 'sharp';
 import { AssetFace } from 'src/database';
 import { AssetEditAction, MirrorAxis } from 'src/dtos/editing.dto';
 import { AssetOcrResponseDto } from 'src/dtos/ocr.dto';
-import { SourceType } from 'src/enum';
+import { Colorspace, ImageFormat, SourceType } from 'src/enum';
 import { LoggingRepository } from 'src/repositories/logging.repository';
 import { BoundingBox } from 'src/repositories/machine-learning.repository';
 import { MediaRepository } from 'src/repositories/media.repository';
@@ -67,6 +70,55 @@ describe(MediaRepository.name, () => {
   beforeEach(() => {
     // eslint-disable-next-line no-sparse-arrays
     sut = new MediaRepository(automock(LoggingRepository, { args: [, { getEnv: () => ({}) }], strict: false }));
+  });
+
+  describe('generateThumbnail', () => {
+    it('should only use the HDR AVIF bypass for preview and thumbnail outputs', () => {
+      const options = {
+        colorspace: Colorspace.P3,
+        format: ImageFormat.Avif,
+        highDynamicRange: true,
+        avifSourcePath: '/data/library/source.avif',
+        processInvalidImages: false,
+        quality: 80,
+        size: 1440,
+      };
+
+      expect(sut['shouldUseHdrAvifBypass'](options, '/data/thumbs/asset_preview.avif')).toBe(true);
+      expect(sut['shouldUseHdrAvifBypass'](options, '/data/thumbs/asset_thumbnail.avif')).toBe(true);
+      expect(sut['shouldUseHdrAvifBypass'](options, '/data/thumbs/asset_fullsize.avif')).toBe(false);
+    });
+
+    it('should generate an AVIF thumbnail when HDR output is requested', async () => {
+      const directory = await mkdtemp(join(tmpdir(), 'immich-avif-preview-'));
+      const output = join(directory, 'preview.avif');
+
+      try {
+        const input = await sharp({
+          create: { width: 4, height: 4, channels: 3, background: { r: 255, g: 0, b: 0 } },
+        })
+          .png()
+          .toBuffer();
+
+        await sut.generateThumbnail(
+          input,
+          {
+            colorspace: Colorspace.P3,
+            format: ImageFormat.Avif,
+            highDynamicRange: true,
+            processInvalidImages: false,
+            quality: 80,
+          },
+          output,
+        );
+
+        const metadata = await sharp(output).metadata();
+        expect(metadata.format).toBe('heif');
+        expect(metadata.compression).toBe('av1');
+      } finally {
+        await rm(directory, { force: true, recursive: true });
+      }
+    });
   });
 
   describe('applyEdits (single actions)', () => {

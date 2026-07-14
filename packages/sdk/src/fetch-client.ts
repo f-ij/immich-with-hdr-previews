@@ -2365,6 +2365,8 @@ export type SystemConfigGeneratedImageDto = {
     size: number;
 };
 export type SystemConfigImageDto = {
+    /** AVIF HDR bypass */
+    avifHdrBypass: boolean;
     colorspace: Colorspace;
     /** Extract embedded */
     extractEmbedded: boolean;
@@ -7663,6 +7665,7 @@ export enum Colorspace {
     P3 = "p3"
 }
 export enum ImageFormat {
+    Avif = "avif",
     Jpeg = "jpeg",
     Webp = "webp"
 }

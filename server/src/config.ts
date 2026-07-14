@@ -150,6 +150,7 @@ export type SystemConfig = {
     template: string;
   };
   image: {
+    avifHdrBypass: boolean;
     thumbnail: ImageOptions;
     preview: ImageOptions;
     colorspace: Colorspace;
@@ -367,6 +368,7 @@ export const defaults = Object.freeze<SystemConfig>({
     template: '{{y}}/{{y}}-{{MM}}-{{dd}}/{{filename}}',
   },
   image: {
+    avifHdrBypass: false,
     thumbnail: {
       format: ImageFormat.Webp,
       size: 250,

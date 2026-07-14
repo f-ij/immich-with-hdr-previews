@@ -13,12 +13,16 @@ part of openapi.api;
 class SystemConfigImageDto {
   /// Returns a new [SystemConfigImageDto] instance.
   SystemConfigImageDto({
+    required this.avifHdrBypass,
     required this.colorspace,
     required this.extractEmbedded,
     required this.fullsize,
     required this.preview,
     required this.thumbnail,
   });
+
+  /// AVIF HDR bypass
+  bool avifHdrBypass;
 
   Colorspace colorspace;
 
@@ -33,6 +37,7 @@ class SystemConfigImageDto {
 
   @override
   bool operator ==(Object other) => identical(this, other) || other is SystemConfigImageDto &&
+    other.avifHdrBypass == avifHdrBypass &&
     other.colorspace == colorspace &&
     other.extractEmbedded == extractEmbedded &&
     other.fullsize == fullsize &&
@@ -42,6 +47,7 @@ class SystemConfigImageDto {
   @override
   int get hashCode =>
     // ignore: unnecessary_parenthesis
+    (avifHdrBypass.hashCode) +
     (colorspace.hashCode) +
     (extractEmbedded.hashCode) +
     (fullsize.hashCode) +
@@ -49,10 +55,11 @@ class SystemConfigImageDto {
     (thumbnail.hashCode);
 
   @override
-  String toString() => 'SystemConfigImageDto[colorspace=$colorspace, extractEmbedded=$extractEmbedded, fullsize=$fullsize, preview=$preview, thumbnail=$thumbnail]';
+  String toString() => 'SystemConfigImageDto[avifHdrBypass=$avifHdrBypass, colorspace=$colorspace, extractEmbedded=$extractEmbedded, fullsize=$fullsize, preview=$preview, thumbnail=$thumbnail]';
 
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{};
+      json[r'avifHdrBypass'] = this.avifHdrBypass;
       json[r'colorspace'] = this.colorspace;
       json[r'extractEmbedded'] = this.extractEmbedded;
       json[r'fullsize'] = this.fullsize;
@@ -70,6 +77,7 @@ class SystemConfigImageDto {
       final json = value.cast<String, dynamic>();
 
       return SystemConfigImageDto(
+        avifHdrBypass: mapValueOfType<bool>(json, r'avifHdrBypass')!,
         colorspace: Colorspace.fromJson(json[r'colorspace'])!,
         extractEmbedded: mapValueOfType<bool>(json, r'extractEmbedded')!,
         fullsize: SystemConfigGeneratedFullsizeImageDto.fromJson(json[r'fullsize'])!,
@@ -129,4 +137,3 @@ class SystemConfigImageDto {
     'thumbnail',
   };
 }
-

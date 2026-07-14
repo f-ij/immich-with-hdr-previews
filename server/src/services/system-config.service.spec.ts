@@ -190,6 +190,7 @@ const updatedConfig = Object.freeze<SystemConfig>({
     template: '{{y}}/{{y}}-{{MM}}-{{dd}}/{{filename}}',
   },
   image: {
+    avifHdrBypass: false,
     thumbnail: {
       size: 250,
       format: ImageFormat.Webp,
