@@ -1,3 +1,12 @@
+> [!WARNING]
+> This is an experimental personal fork. Use at your own risk.
+
+> [!NOTE]
+> This fork adds experimental HDR preview and iPhone Safari viewer changes. See [fork.md](fork.md) for supported paths, known limitations, and branch structure.
+
+> [!WARNING]
+> HDR AVIF previews currently target the web app. The Immich mobile app may show only a blurred, non-zoomable placeholder for affected assets. This remains under investigation.
+
 <p align="center"> 
   <br/>
   <a href="https://opensource.org/license/agpl-v3"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg?color=3F51B5&style=for-the-badge&label=License&logoColor=000000&labelColor=ececec" alt="License: AGPLv3"></a>

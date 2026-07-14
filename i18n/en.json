@@ -84,7 +84,7 @@
     "failed_job_command": "Command {command} failed for job: {job}",
     "force_delete_user_warning": "WARNING: This will immediately remove the user and all assets. This cannot be undone and the files cannot be recovered.",
     "image_avif_hdr_bypass": "Generate HDR AVIF previews",
-    "image_avif_hdr_bypass_description": "Generate HDR AVIF previews and thumbnails for HDR AVIF, JPEG XL, and HEIF/HEIC originals. Other images continue to use the configured formats.",
+    "image_avif_hdr_bypass_description": "Generate HDR AVIF previews and thumbnails for HDR AVIF, JPEG XL, and HEIF/HEIC originals. Other images continue to use the configured formats. (You may need to clear your browser cache after enabling this setting.)",
     "image_format": "Format",
     "image_format_description": "WebP produces smaller files than JPEG, but is slower to encode.",
     "image_fullsize_description": "Full-size image with stripped metadata, used when zoomed in",
