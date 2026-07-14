@@ -550,6 +550,7 @@ export enum Colorspace {
 export const ColorspaceSchema = z.enum(Colorspace).describe('Colorspace').meta({ id: 'Colorspace' });
 
 export enum ImageFormat {
+  Avif = 'avif',
   Jpeg = 'jpeg',
   Webp = 'webp',
 }
@@ -838,6 +839,7 @@ export enum JobName {
   AssetExtractMetadataQueueAll = 'AssetExtractMetadataQueueAll',
   AssetExtractMetadata = 'AssetExtractMetadata',
   AssetFileMigration = 'AssetFileMigration',
+  AssetGenerateAvifHdrThumbnailsQueueAll = 'AssetGenerateAvifHdrThumbnailsQueueAll',
   AssetGenerateThumbnailsQueueAll = 'AssetGenerateThumbnailsQueueAll',
   AssetGenerateThumbnails = 'AssetGenerateThumbnails',
 

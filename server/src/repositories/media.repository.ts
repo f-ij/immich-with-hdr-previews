@@ -5,6 +5,7 @@ import _ from 'lodash';
 import { Duration } from 'luxon';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
+import { basename } from 'node:path';
 import { Writable } from 'node:stream';
 import sharp from 'sharp';
 import { ORIENTATION_TO_SHARP_ROTATION } from 'src/constants';
@@ -21,6 +22,7 @@ import {
   DvSignalCompatibility,
   H264Profile,
   HevcProfile,
+  ImageFormat,
   LogLevel,
   RawExtractedFormat,
 } from 'src/enum';
@@ -35,6 +37,7 @@ import {
   VideoInfo,
   VideoPacketInfo,
 } from 'src/types';
+import { writeHdrAvifThumbnail } from 'src/utils/avif-hdr-bypass';
 import { handlePromiseError } from 'src/utils/misc';
 import { createAffineMatrix } from 'src/utils/transform';
 
@@ -173,14 +176,85 @@ export class MediaRepository {
   }
 
   async generateThumbnail(input: string | Buffer, options: GenerateThumbnailOptions, output: string): Promise<void> {
-    await this.getImageDecodingPipeline(input, options)
-      .toFormat(options.format, {
+    try {
+      await this.writeThumbnail(input, options, output);
+    } catch (error: any) {
+      if (!this.shouldFallbackTo8BitAvif(error, options)) {
+        throw error;
+      }
+
+      this.logger.warn(
+        '10-bit AVIF encoding is not supported by this Sharp/libvips runtime; falling back to 8-bit AVIF with the configured ICC profile',
+      );
+      await this.writeThumbnail(input, { ...options, highDynamicRange: false }, output);
+    }
+  }
+
+  private async writeThumbnail(
+    input: string | Buffer,
+    options: GenerateThumbnailOptions,
+    output: string,
+  ): Promise<void> {
+    if (this.shouldUseHdrAvifBypass(options, output)) {
+      try {
+        await writeHdrAvifThumbnail({
+          sourcePath: options.avifSourcePath,
+          outputPath: output,
+          size: options.size,
+          quality: options.quality,
+        });
+        return;
+      } catch (error: any) {
+        this.logger.warn(`HDR AVIF bypass failed, falling back to Sharp: ${error.message}`);
+      }
+    }
+
+    return this.getImageDecodingPipeline(input, options)
+      .toFormat(options.format, this.getOutputOptions(options))
+      .toFile(output)
+      .then(() => {});
+  }
+
+  private shouldUseHdrAvifBypass(
+    options: GenerateThumbnailOptions,
+    output: string,
+  ): options is GenerateThumbnailOptions & { avifSourcePath: string; size: number } {
+    const outputName = basename(output).toLowerCase();
+    return (
+      options.format === ImageFormat.Avif &&
+      !!options.highDynamicRange &&
+      !!options.avifSourcePath &&
+      options.size !== undefined &&
+      !options.edits?.length &&
+      (outputName.endsWith('_preview.avif') || outputName.endsWith('_thumbnail.avif'))
+    );
+  }
+
+  private shouldFallbackTo8BitAvif(error: Error, options: GenerateThumbnailOptions) {
+    return (
+      options.format === ImageFormat.Avif &&
+      !!options.highDynamicRange &&
+      error.message.includes('bitdepth when using prebuilt binaries')
+    );
+  }
+
+  private getOutputOptions(options: GenerateThumbnailOptions) {
+    const chromaSubsampling = options.quality >= 80 ? '4:4:4' : '4:2:0';
+
+    if (options.format === ImageFormat.Avif) {
+      return {
         quality: options.quality,
-        // this is default in libvips (except the threshold is 90), but we need to set it manually in sharp
-        chromaSubsampling: options.quality >= 80 ? '4:4:4' : '4:2:0',
-        progressive: options.progressive,
-      })
-      .toFile(output);
+        chromaSubsampling,
+        bitdepth: options.highDynamicRange ? 10 : 8,
+      };
+    }
+
+    return {
+      quality: options.quality,
+      // this is default in libvips (except the threshold is 90), but we need to set it manually in sharp
+      chromaSubsampling,
+      progressive: options.progressive,
+    };
   }
 
   private getImageDecodingPipeline(input: string | Buffer, options: DecodeToBufferOptions) {

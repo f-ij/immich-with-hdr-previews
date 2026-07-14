@@ -172,6 +172,84 @@ where
     )
   )
 
+-- AssetJobRepository.streamForAvifHdrBypassThumbnailJob
+select
+  "asset"."id"
+from
+  "asset"
+  inner join "asset_exif" on "asset_exif"."assetId" = "asset"."id"
+where
+  "asset"."deletedAt" is null
+  and "asset"."visibility" != 'hidden'
+  and "asset"."type" = 'IMAGE'
+  and lower(asset."originalFileName") like $1
+  and (
+    "asset_exif"."bitsPerSample" > $2
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $3
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $4
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $5
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $6
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $7
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $8
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $9
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $10
+    or lower(
+      concat_ws(
+        ' ',
+        asset_exif.colorspace,
+        asset_exif."profileDescription"
+      )
+    ) like $11
+  )
+
 -- AssetJobRepository.getForMigrationJob
 select
   "asset"."id",

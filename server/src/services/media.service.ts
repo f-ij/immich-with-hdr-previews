@@ -26,6 +26,7 @@ import {
   VideoContainer,
 } from 'src/enum';
 import { AssetJobRepository } from 'src/repositories/asset-job.repository';
+import { ArgOf } from 'src/repositories/event.repository';
 import { BoundingBox } from 'src/repositories/machine-learning.repository';
 import { BaseService } from 'src/services/base.service';
 import {
@@ -64,6 +65,39 @@ export class MediaService extends BaseService {
   @OnEvent({ name: 'AppBootstrap', workers: [ImmichWorker.Microservices] })
   async onBootstrap() {
     this.videoInterfaces = await this.storageCore.getVideoInterfaces();
+  }
+
+  @OnEvent({ name: 'ConfigUpdate', server: true, workers: [ImmichWorker.Microservices] })
+  async onConfigUpdate({ oldConfig, newConfig }: ArgOf<'ConfigUpdate'>) {
+    if (!oldConfig.image.avifHdrBypass && newConfig.image.avifHdrBypass) {
+      await this.jobRepository.queue({ name: JobName.AssetGenerateAvifHdrThumbnailsQueueAll });
+    }
+  }
+
+  @OnJob({ name: JobName.AssetGenerateAvifHdrThumbnailsQueueAll, queue: QueueName.ThumbnailGeneration })
+  async handleQueueGenerateAvifHdrThumbnails(): Promise<JobStatus> {
+    const { image } = await this.getConfig({ withCache: true });
+    if (!image.avifHdrBypass) {
+      return JobStatus.Skipped;
+    }
+
+    let jobs: JobItem[] = [];
+
+    const queueAll = async () => {
+      await this.jobRepository.queueAll(jobs);
+      jobs = [];
+    };
+
+    for await (const asset of this.assetJobRepository.streamForAvifHdrBypassThumbnailJob()) {
+      jobs.push({ name: JobName.AssetGenerateThumbnails, data: { id: asset.id } });
+
+      if (jobs.length >= JOBS_ASSET_PAGINATION_SIZE) {
+        await queueAll();
+      }
+    }
+
+    await queueAll();
+    return JobStatus.Success;
   }
 
   @OnJob({ name: JobName.AssetGenerateThumbnailsQueueAll, queue: QueueName.ThumbnailGeneration })
@@ -260,6 +294,7 @@ export class MediaService extends BaseService {
   private async decodeImage(thumbSource: string | Buffer, exifInfo: ThumbnailAsset['exifInfo'], targetSize?: number) {
     const { image } = await this.getConfig({ withCache: true });
     const colorspace = this.isSRGB(exifInfo) ? Colorspace.Srgb : image.colorspace;
+    const highDynamicRange = this.isHDRImage(exifInfo);
     const decodeOptions: DecodeToBufferOptions = {
       colorspace,
       processInvalidImages: process.env.IMMICH_PROCESS_INVALID_IMAGES === 'true',
@@ -268,7 +303,7 @@ export class MediaService extends BaseService {
     };
 
     const { info, data } = await this.mediaRepository.decodeImage(thumbSource, decodeOptions);
-    return { info, data, colorspace };
+    return { info, data, colorspace, highDynamicRange };
   }
 
   private async extractOriginalImage(asset: ThumbnailAsset, image: SystemConfig['image'], useEdits = false) {
@@ -281,7 +316,7 @@ export class MediaService extends BaseService {
     const convertFullsize = generateFullsize && (!extracted || !mimeTypes.isWebSupportedImage(` .${extracted.format}`));
 
     const thumbSource = extracted ? extracted.buffer : asset.originalPath;
-    const { data, info, colorspace } = await this.decodeImage(
+    const { data, info, colorspace, highDynamicRange } = await this.decodeImage(
       thumbSource,
       // only specify orientation to extracted images which don't have EXIF orientation data
       // or it can double rotate the image
@@ -299,6 +334,7 @@ export class MediaService extends BaseService {
       data,
       info,
       colorspace,
+      highDynamicRange,
       convertFullsize,
       generateFullsize,
       isTransparent,
@@ -308,34 +344,60 @@ export class MediaService extends BaseService {
   private async generateImageThumbnails(asset: ThumbnailAsset, { image }: SystemConfig, useEdits: boolean = false) {
     // Handle embedded preview extraction for RAW files
     const extractedImage = await this.extractOriginalImage(asset, image, useEdits);
-    const { info, data, colorspace, generateFullsize, convertFullsize, extracted, isTransparent } = extractedImage;
+    const { info, data, colorspace, highDynamicRange, generateFullsize, convertFullsize, extracted, isTransparent } =
+      extractedImage;
+    const useAvifHdrBypass =
+      image.avifHdrBypass &&
+      highDynamicRange &&
+      !useEdits &&
+      !extracted &&
+      mimeTypes.lookup(asset.originalPath) === 'image/avif';
 
-    const previewFormat = image.preview.format;
+    const previewFormat = useAvifHdrBypass ? ImageFormat.Avif : image.preview.format;
     this.warnOnTransparencyLoss(isTransparent, previewFormat, asset.id);
 
-    const thumbnailFormat = image.thumbnail.format;
+    const thumbnailFormat = useAvifHdrBypass ? ImageFormat.Avif : image.thumbnail.format;
     this.warnOnTransparencyLoss(isTransparent, thumbnailFormat, asset.id);
 
     const previewFile = this.getImageFile(asset, {
       fileType: AssetFileType.Preview,
       format: previewFormat,
       isEdited: useEdits,
-      isProgressive: !!image.preview.progressive && previewFormat !== ImageFormat.Webp,
+      isProgressive: this.isProgressiveImage(previewFormat, image.preview.progressive),
       isTransparent,
     });
     const thumbnailFile = this.getImageFile(asset, {
       fileType: AssetFileType.Thumbnail,
       format: thumbnailFormat,
       isEdited: useEdits,
-      isProgressive: !!image.thumbnail.progressive && thumbnailFormat !== ImageFormat.Webp,
+      isProgressive: this.isProgressiveImage(thumbnailFormat, image.thumbnail.progressive),
       isTransparent,
     });
     this.storageCore.ensureFolders(previewFile.path);
 
     // generate final images
-    const baseOptions = { colorspace, processInvalidImages: false, raw: info, edits: useEdits ? asset.edits : [] };
-    const thumbnailOptions = { ...image.thumbnail, ...baseOptions, format: thumbnailFormat };
-    const previewOptions = { ...image.preview, ...baseOptions, format: previewFormat };
+    const baseOptions = {
+      colorspace,
+      processInvalidImages: false,
+      raw: info,
+      edits: useEdits ? asset.edits : [],
+    };
+    const avifHdrBypassOptions = useAvifHdrBypass
+      ? { highDynamicRange: true, avifSourcePath: asset.originalPath }
+      : undefined;
+    const thumbnailOptions = {
+      ...image.thumbnail,
+      ...baseOptions,
+      format: thumbnailFormat,
+      ...(avifHdrBypassOptions ??
+        (highDynamicRange && thumbnailFormat === ImageFormat.Avif ? { highDynamicRange } : {})),
+    };
+    const previewOptions = {
+      ...image.preview,
+      ...baseOptions,
+      format: previewFormat,
+      ...(avifHdrBypassOptions ?? (highDynamicRange && previewFormat === ImageFormat.Avif ? { highDynamicRange } : {})),
+    };
     const promises = [
       this.mediaRepository.generateThumbhash(data, baseOptions),
       this.mediaRepository.generateThumbnail(data, thumbnailOptions, thumbnailFile.path),
@@ -351,7 +413,7 @@ export class MediaService extends BaseService {
         fileType: AssetFileType.FullSize,
         format: fullsizeFormat,
         isEdited: useEdits,
-        isProgressive: !!image.fullsize.progressive && fullsizeFormat !== ImageFormat.Webp,
+        isProgressive: this.isProgressiveImage(fullsizeFormat, image.fullsize.progressive),
         isTransparent,
       });
       const fullsizeOptions = {
@@ -359,6 +421,7 @@ export class MediaService extends BaseService {
         format: fullsizeFormat,
         quality: image.fullsize.quality,
         progressive: image.fullsize.progressive,
+        ...(highDynamicRange && fullsizeFormat === ImageFormat.Avif ? { highDynamicRange } : {}),
       };
       promises.push(this.mediaRepository.generateThumbnail(data, fullsizeOptions, fullsizeFile.path));
     } else if (generateFullsize && extracted && extracted.format === RawExtractedFormat.Jpeg) {
@@ -366,7 +429,7 @@ export class MediaService extends BaseService {
         fileType: AssetFileType.FullSize,
         format: extracted.format,
         isEdited: false,
-        isProgressive: !!image.fullsize.progressive && image.fullsize.format !== ImageFormat.Webp,
+        isProgressive: this.isProgressiveImage(image.fullsize.format, image.fullsize.progressive),
         isTransparent,
       });
       this.storageCore.ensureFolders(fullsizeFile.path);
@@ -764,6 +827,29 @@ export class MediaService extends BaseService {
       // assume sRGB for images with no relevant metadata
       return true;
     }
+  }
+
+  isHDRImage({
+    colorspace,
+    profileDescription,
+    bitsPerSample,
+  }: {
+    colorspace: string | null;
+    profileDescription: string | null;
+    bitsPerSample: number | null;
+  }): boolean {
+    if (bitsPerSample && bitsPerSample > 8) {
+      return true;
+    }
+
+    const colorMetadata = [colorspace, profileDescription].filter(Boolean).join(' ').toLowerCase();
+    return ['hdr', 'hlg', 'pq', 'rec.2020', 'rec2020', 'bt.2020', 'bt2020', 'smpte st 2084', 'arib std-b67'].some(
+      (value) => colorMetadata.includes(value),
+    );
+  }
+
+  private isProgressiveImage(format: ImageFormat, progressive?: boolean): boolean {
+    return !!progressive && format === ImageFormat.Jpeg;
   }
 
   private parseBitrateToBps(bitrateString: string) {

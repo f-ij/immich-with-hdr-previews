@@ -15,6 +15,19 @@
   const disabled = $derived(featureFlagsManager.value.configFile);
   const config = $derived(systemConfigManager.value);
   let configToEdit = $state(systemConfigManager.cloneValue());
+
+  const formatOptions = [
+    { value: ImageFormat.Jpeg, text: 'JPEG' },
+    { value: ImageFormat.Webp, text: 'WebP' },
+  ];
+
+  const isProgressiveSupported = (format: string | number) => format === ImageFormat.Jpeg;
+
+  const disableProgressiveIfUnsupported = (format: string | number, image: { progressive?: boolean }) => {
+    if (!isProgressiveSupported(format)) {
+      image.progressive = false;
+    }
+  };
 </script>
 
 <div>
@@ -30,18 +43,11 @@
             label={$t('admin.image_format')}
             desc={$t('admin.image_format_description')}
             bind:value={configToEdit.image.thumbnail.format}
-            options={[
-              { value: ImageFormat.Jpeg, text: 'JPEG' },
-              { value: ImageFormat.Webp, text: 'WebP' },
-            ]}
+            options={formatOptions}
             name="format"
             isEdited={configToEdit.image.thumbnail.format !== config.image.thumbnail.format}
             {disabled}
-            onSelect={(value) => {
-              if (value === ImageFormat.Webp) {
-                configToEdit.image.thumbnail.progressive = false;
-              }
-            }}
+            onSelect={(value) => disableProgressiveIfUnsupported(value, configToEdit.image.thumbnail)}
           />
 
           <SettingSelect
@@ -76,7 +82,7 @@
             checked={configToEdit.image.thumbnail.progressive}
             onToggle={(isChecked) => (configToEdit.image.thumbnail.progressive = isChecked)}
             isEdited={configToEdit.image.thumbnail.progressive !== config.image.thumbnail.progressive}
-            disabled={disabled || configToEdit.image.thumbnail.format === ImageFormat.Webp}
+            disabled={disabled || !isProgressiveSupported(configToEdit.image.thumbnail.format)}
           />
         </SettingAccordion>
 
@@ -89,18 +95,11 @@
             label={$t('admin.image_format')}
             desc={$t('admin.image_format_description')}
             bind:value={configToEdit.image.preview.format}
-            options={[
-              { value: ImageFormat.Jpeg, text: 'JPEG' },
-              { value: ImageFormat.Webp, text: 'WebP' },
-            ]}
+            options={formatOptions}
             name="format"
             isEdited={configToEdit.image.preview.format !== config.image.preview.format}
             {disabled}
-            onSelect={(value) => {
-              if (value === ImageFormat.Webp) {
-                configToEdit.image.preview.progressive = false;
-              }
-            }}
+            onSelect={(value) => disableProgressiveIfUnsupported(value, configToEdit.image.preview)}
           />
 
           <SettingSelect
@@ -134,7 +133,7 @@
             checked={configToEdit.image.preview.progressive}
             onToggle={(isChecked) => (configToEdit.image.preview.progressive = isChecked)}
             isEdited={configToEdit.image.preview.progressive !== config.image.preview.progressive}
-            disabled={disabled || configToEdit.image.preview.format === ImageFormat.Webp}
+            disabled={disabled || !isProgressiveSupported(configToEdit.image.preview.format)}
           />
         </SettingAccordion>
 
@@ -158,18 +157,11 @@
             label={$t('admin.image_format')}
             desc={$t('admin.image_format_description')}
             bind:value={configToEdit.image.fullsize.format}
-            options={[
-              { value: ImageFormat.Jpeg, text: 'JPEG' },
-              { value: ImageFormat.Webp, text: 'WebP' },
-            ]}
+            options={formatOptions}
             name="format"
             isEdited={configToEdit.image.fullsize.format !== config.image.fullsize.format}
             disabled={disabled || !configToEdit.image.fullsize.enabled}
-            onSelect={(value) => {
-              if (value === ImageFormat.Webp) {
-                configToEdit.image.fullsize.progressive = false;
-              }
-            }}
+            onSelect={(value) => disableProgressiveIfUnsupported(value, configToEdit.image.fullsize)}
           />
 
           <SettingInputField
@@ -189,7 +181,7 @@
             isEdited={configToEdit.image.fullsize.progressive !== config.image.fullsize.progressive}
             disabled={disabled ||
               !configToEdit.image.fullsize.enabled ||
-              configToEdit.image.fullsize.format === ImageFormat.Webp}
+              !isProgressiveSupported(configToEdit.image.fullsize.format)}
           />
         </SettingAccordion>
 
@@ -211,6 +203,17 @@
             checked={configToEdit.image.extractEmbedded}
             onToggle={() => (configToEdit.image.extractEmbedded = !configToEdit.image.extractEmbedded)}
             isEdited={configToEdit.image.extractEmbedded !== config.image.extractEmbedded}
+            {disabled}
+          />
+        </div>
+
+        <div class="mt-4">
+          <SettingSwitch
+            title={$t('admin.image_avif_hdr_bypass')}
+            subtitle={`${$t('admin.image_avif_hdr_bypass_description')} (You may need to clear your browser cache after enabling this.)`}
+            checked={configToEdit.image.avifHdrBypass}
+            onToggle={(isChecked) => (configToEdit.image.avifHdrBypass = isChecked)}
+            isEdited={configToEdit.image.avifHdrBypass !== config.image.avifHdrBypass}
             {disabled}
           />
         </div>
