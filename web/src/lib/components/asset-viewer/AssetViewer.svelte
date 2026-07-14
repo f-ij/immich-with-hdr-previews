@@ -2,6 +2,7 @@
   import { browser } from '$app/environment';
   import { focusTrap } from '$lib/actions/focus-trap';
   import { shortcuts } from '$lib/actions/shortcut';
+  import type { SwipeEvent } from '$lib/actions/swipe';
   import type { Action, OnAction, PreAction } from '$lib/components/asset-viewer/actions/action';
   import NextAssetAction from '$lib/components/asset-viewer/actions/NextAssetAction.svelte';
   import PreviousAssetAction from '$lib/components/asset-viewer/actions/PreviousAssetAction.svelte';
@@ -39,7 +40,6 @@
   } from '@immich/sdk';
   import { CommandPaletteDefaultProvider } from '@immich/ui';
   import { onDestroy, onMount, untrack } from 'svelte';
-  import type { SwipeCustomEvent } from 'svelte-gestures';
   import { t } from 'svelte-i18n';
   import { fly } from 'svelte/transition';
   import Thumbnail from '../assets/thumbnail/Thumbnail.svelte';
@@ -461,7 +461,7 @@
       !assetViewerManager.isShowEditor,
   );
 
-  const onSwipe = (event: SwipeCustomEvent) => {
+  const onSwipe = (event: SwipeEvent) => {
     if (assetViewerManager.zoom > 1) {
       return;
     }
