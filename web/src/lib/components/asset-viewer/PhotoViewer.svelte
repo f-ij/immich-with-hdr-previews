@@ -31,12 +31,23 @@
     onReady?: () => void;
     onError?: () => void;
     onSwipe?: (event: SwipeCustomEvent) => void;
+    allowVerticalPageScroll?: boolean;
   };
 
-  let { cursor, element = $bindable(), sharedLink, onReady, onError, onSwipe }: Props = $props();
+  let {
+    cursor,
+    element = $bindable(),
+    sharedLink,
+    onReady,
+    onError,
+    onSwipe,
+    allowVerticalPageScroll = false,
+  }: Props = $props();
 
   const { slideshowState, slideshowLook } = slideshowStore;
   const asset = $derived(cursor.current);
+  const viewerTouchAction = allowVerticalPageScroll ? 'pan-y' : 'none';
+  const shouldZoomOnSingleTouch = viewerTouchAction === 'pan-y' ? () => assetViewerManager.zoom > 1 : undefined;
 
   let visibleImageReady: boolean = $state(false);
 
@@ -217,8 +228,11 @@
   bind:clientHeight={containerHeight}
   role="presentation"
   ondblclick={onZoom}
-  use:zoomImageAction={{ zoomTarget: adaptiveImage }}
-  {...useSwipe((event) => onSwipe?.(event))}
+  use:zoomImageAction={{ zoomTarget: adaptiveImage, touchAction: viewerTouchAction, shouldZoomOnSingleTouch }}
+  {...useSwipe(
+    (event) => onSwipe?.(event),
+    () => ({ touchAction: viewerTouchAction }),
+  )}
 >
   <AdaptiveImage
     {asset}

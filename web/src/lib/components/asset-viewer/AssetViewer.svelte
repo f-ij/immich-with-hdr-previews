@@ -24,6 +24,8 @@
   import { navigateToAsset } from '$lib/utils/asset-utils';
   import { handleError } from '$lib/utils/handle-error';
   import { InvocationTracker } from '$lib/utils/invocationTracker';
+  import { enableIphoneSafariViewerScroll, isIphoneSafariTab } from '$lib/utils/ios-safari-viewer-scroll';
+  import '$lib/utils/ios-safari-viewer-scroll.css';
   import { SlideshowHistory } from '$lib/utils/slideshow-history';
   import { toTimelineAsset } from '$lib/utils/timeline-util';
   import {
@@ -112,6 +114,7 @@
 
   let isPlayingOriginalVideo = $state($alwaysLoadOriginalVideo);
   let slideshowStartAssetId = $state<string>();
+  const allowVerticalPageScroll = browser && isIphoneSafariTab();
 
   const setPlayOriginalVideo = (value: boolean) => {
     isPlayingOriginalVideo = value;
@@ -151,6 +154,7 @@
 
   onMount(() => {
     syncAssetViewerOpenClass(true);
+    const disableIphoneSafariViewerScroll = enableIphoneSafariViewerScroll(assetViewerHtmlElement);
     const slideshowStateUnsubscribe = slideshowState.subscribe((value) => {
       if (value === SlideshowState.PlaySlideshow) {
         slideshowHistory.reset();
@@ -169,6 +173,7 @@
     });
 
     return () => {
+      disableIphoneSafariViewerScroll();
       slideshowStateUnsubscribe();
       slideshowNavigationUnsubscribe();
     };
@@ -561,7 +566,7 @@
     {:else if viewerKind === 'CropArea'}
       <CropArea {asset} />
     {:else if viewerKind === 'PhotoViewer'}
-      <PhotoViewer cursor={{ ...cursor, current: asset }} {sharedLink} {onSwipe} />
+      <PhotoViewer cursor={{ ...cursor, current: asset }} {sharedLink} {onSwipe} {allowVerticalPageScroll} />
     {:else if viewerKind === 'VideoViewer'}
       <VideoViewer
         {asset}
