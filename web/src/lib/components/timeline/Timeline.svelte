@@ -16,13 +16,15 @@
   import type { TimelineDay } from '$lib/managers/timeline-manager/timeline-day.svelte';
   import { isIntersecting } from '$lib/managers/timeline-manager/internal/intersection-support.svelte';
   import type { TimelineMonth } from '$lib/managers/timeline-manager/timeline-month.svelte';
-  import { TimelineManager } from '$lib/managers/timeline-manager/timeline-manager.svelte';
+  import { TimelineManager, type TimelineScrollTarget } from '$lib/managers/timeline-manager/timeline-manager.svelte';
   import type { TimelineAsset, TimelineManagerOptions, ViewportTopMonth } from '$lib/managers/timeline-manager/types';
   import { assetsSnapshot } from '$lib/managers/timeline-manager/utils.svelte';
   import { keyboardManager } from '$lib/stores/keyboard-manager.svelte';
   import { mediaQueryManager } from '$lib/stores/media-query-manager.svelte';
   import { isAssetViewerRoute, navigate } from '$lib/utils/navigation';
+  import '$lib/utils/ios-safari-timeline-scroll.css';
   import { getTimes, type ScrubberListener } from '$lib/utils/timeline-util';
+  import { iphoneSafariTimelineScroll } from '$lib/utils/ios-safari-timeline-scroll';
   import { type AlbumResponseDto, type PersonResponseDto, type UserResponseDto } from '@immich/sdk';
   import { DateTime } from 'luxon';
   import { onDestroy, onMount, tick, type Snippet } from 'svelte';
@@ -61,6 +63,7 @@
         asset: TimelineAsset,
       ) => void,
     ) => void;
+    collapseSafariBars?: boolean;
   }
 
   let {
@@ -83,6 +86,7 @@
     empty,
     customThumbnailLayout,
     onThumbnailClick,
+    collapseSafariBars = false,
   }: Props = $props();
 
   timelineManager = new TimelineManager();
@@ -91,6 +95,7 @@
 
   let scrollableElement: HTMLElement | undefined = $state();
   let timelineElement: HTMLElement | undefined = $state();
+  let documentScrollActive = $state(false);
   let invisible = $state(true);
   // The percentage of scroll through the month that is currently intersecting the top boundary of the viewport.
   // Note: There may be multiple months visible within the viewport at any given time.
@@ -118,9 +123,35 @@
     timelineManager.setLayoutOptions(layoutOptions);
   });
 
+  const documentScrollTarget: TimelineScrollTarget = {
+    get scrollTop() {
+      return Math.min(Math.max(globalThis.scrollY, 0), Math.max(0, timelineManager.maxScroll));
+    },
+    scrollTo: (options) => {
+      const top = Math.min(Math.max(options.top ?? globalThis.scrollY, 0), Math.max(0, timelineManager.maxScroll));
+
+      // Repeated root-scroll writes at a boundary restart Safari's browser-bar
+      // settling even though the page cannot move, which can stall the scrubber.
+      if (top === documentScrollTarget.scrollTop) {
+        return;
+      }
+
+      globalThis.scrollTo({ ...options, top });
+    },
+    scrollBy: (options) => globalThis.scrollBy(options),
+  };
+
   $effect(() => {
-    timelineManager.scrollableElement = scrollableElement;
+    timelineManager.scrollableElement = documentScrollActive ? documentScrollTarget : scrollableElement;
   });
+
+  const setDocumentScrollActive = (active: boolean, scrollTop: number) => {
+    documentScrollActive = active;
+    timelineManager.scrollableElement = active ? documentScrollTarget : scrollableElement;
+    if (!active && scrollableElement) {
+      scrollableElement.scrollTop = scrollTop;
+    }
+  };
 
   const getAssetPosition = (assetId: string, timelineMonth: TimelineMonth) =>
     timelineMonth.findAssetAbsolutePosition(assetId);
@@ -146,7 +177,7 @@
       return;
     }
 
-    const currentTop = scrollableElement?.scrollTop || 0;
+    const currentTop = timelineManager.scrollTop;
     const viewportHeight = visibleBottom - visibleTop;
 
     // Calculate the minimum scroll needed to bring the asset into view.
@@ -307,6 +338,27 @@
     }
   };
 
+  const startDocumentScrub = () => {
+    if (documentScrollActive) {
+      timelineManager.startScrubbing();
+    }
+  };
+
+  const stopDocumentScrub: ScrubberListener = async (scrubberData) => {
+    if (!documentScrollActive) {
+      return;
+    }
+
+    const settled = await timelineManager.stopScrubbing();
+    if (!settled || !documentScrollActive) {
+      return;
+    }
+
+    // Deferred months now have their actual heights, so map the pointer's final
+    // date position once instead of letting each loaded month move root scroll.
+    void onScrub(scrubberData);
+  };
+
   // note: don't throttle, debounce, or otherwise make this function async - it causes flicker
   const handleTimelineScroll = () => {
     if (!scrollableElement) {
@@ -317,13 +369,13 @@
       // edge case - scroll limited due to size of content, must adjust -  use the overall percent instead
       const maxScroll = timelineManager.maxScroll;
 
-      timelineScrollPercent = Math.min(1, scrollableElement.scrollTop / maxScroll);
+      timelineScrollPercent = Math.min(1, timelineManager.scrollTop / maxScroll);
       viewportTopMonth = undefined;
       viewportTopMonthScrollPercent = 0;
     } else {
       timelineScrollPercent = 0;
 
-      let top = scrollableElement.scrollTop;
+      let top = timelineManager.scrollTop;
       let maxScrollPercent = timelineManager.maxScrollPercent;
 
       const monthsLength = timelineManager.months.length;
@@ -361,6 +413,12 @@
         top = next;
       }
     }
+  };
+
+  const handleTimelineScrollEvent = () => {
+    handleTimelineScroll();
+    timelineManager.updateSlidingWindow();
+    updateIsScrolling();
   };
 
   const handleSelectAsset = (asset: TimelineAsset) => {
@@ -579,6 +637,8 @@
     {viewportTopMonthScrollPercent}
     {viewportTopMonth}
     {onScrub}
+    startScrub={startDocumentScrub}
+    stopScrub={stopDocumentScrub}
     bind:scrubberWidth
     onScrubKeyDown={(evt) => {
       evt.preventDefault();
@@ -589,10 +649,10 @@
       if (evt.key === 'ArrowUp') {
         amount = -amount;
         if (keyboardManager.shift) {
-          scrollableElement?.scrollBy({ top: amount, behavior: 'smooth' });
+          timelineManager.scrollBy(amount, 'smooth');
         }
       } else if (evt.key === 'ArrowDown') {
-        scrollableElement?.scrollBy({ top: amount, behavior: 'smooth' });
+        timelineManager.scrollBy(amount, 'smooth');
       }
     }}
   />
@@ -607,7 +667,13 @@
   bind:clientHeight={timelineManager.viewportHeight}
   bind:clientWidth={timelineManager.viewportWidth}
   bind:this={scrollableElement}
-  onscroll={() => (handleTimelineScroll(), timelineManager.updateSlidingWindow(), updateIsScrolling())}
+  onscroll={() => !documentScrollActive && handleTimelineScrollEvent()}
+  use:iphoneSafariTimelineScroll={{
+    enabled: collapseSafariBars,
+    scrollRange: Math.max(0, timelineManager.maxScroll),
+    onScroll: handleTimelineScrollEvent,
+    onActiveChange: setDocumentScrollActive,
+  }}
 >
   <section
     bind:this={timelineElement}

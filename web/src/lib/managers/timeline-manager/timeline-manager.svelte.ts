@@ -40,6 +40,12 @@ import type {
   Viewport,
 } from './types';
 
+export type TimelineScrollTarget = {
+  readonly scrollTop: number;
+  scrollTo: (options: ScrollToOptions) => void;
+  scrollBy: (options: ScrollToOptions) => void;
+};
+
 type ViewportTopMonthIntersection = {
   month: TimelineMonth | undefined;
   // Where viewport top intersects month (0 = month top, 1 = month bottom)
@@ -92,8 +98,11 @@ export class TimelineManager extends VirtualScrollManager {
   static #INIT_OPTIONS = {};
   #websocketSupport: WebsocketSupport | undefined;
   #options: TimelineManagerOptions = TimelineManager.#INIT_OPTIONS;
+  #scrubSession = 0;
+  #scrubbing = false;
+  #settlingScrub = false;
   #updatingViewportProximities = false;
-  #scrollableElement: HTMLElement | undefined = $state();
+  #scrollableElement: TimelineScrollTarget | undefined = $state();
   #showAssetOwners = new PersistedLocalStorage<boolean>('album-show-asset-owners', false);
   #unsubscribes: Array<() => void> = [];
 
@@ -123,7 +132,7 @@ export class TimelineManager extends VirtualScrollManager {
     return this.#scrollableElement?.scrollTop ?? 0;
   }
 
-  set scrollableElement(element: HTMLElement | undefined) {
+  set scrollableElement(element: TimelineScrollTarget | undefined) {
     this.#scrollableElement = element;
   }
 
@@ -132,9 +141,56 @@ export class TimelineManager extends VirtualScrollManager {
     this.updateSlidingWindow();
   }
 
-  scrollBy(y: number) {
-    this.#scrollableElement?.scrollBy(0, y);
+  scrollBy(y: number, behavior: ScrollBehavior = 'auto') {
+    this.#scrollableElement?.scrollBy({ top: y, behavior });
     this.updateSlidingWindow();
+  }
+
+  get layoutScrollCompensationEnabled() {
+    return !this.#scrubbing && !this.#settlingScrub;
+  }
+
+  startScrubbing() {
+    this.#scrubSession++;
+    this.#scrubbing = true;
+    this.#settlingScrub = false;
+
+    // Loading replaces estimated month heights with actual ones. Cancel work that
+    // could finish during a document-scroll drag and move the page under the pointer.
+    for (const month of this.months) {
+      if (month.loader?.loading) {
+        month.cancel();
+      }
+    }
+  }
+
+  async stopScrubbing(): Promise<boolean> {
+    if (!this.#scrubbing) {
+      return false;
+    }
+
+    const scrubSession = this.#scrubSession;
+    this.#scrubbing = false;
+    this.#settlingScrub = true;
+
+    // Settle the visible loading batch without applying a scroll correction for
+    // every month. Timeline.svelte reapplies the final scrub target once afterward.
+    for (const month of this.months) {
+      if (month.isInOrNearViewport) {
+        void this.loadTimelineMonth(month.yearMonth);
+      }
+    }
+
+    while (scrubSession === this.#scrubSession) {
+      const loading = this.months.flatMap((month) => (month.loader?.loading ? [month.loader] : []));
+      if (loading.length === 0) {
+        this.#settlingScrub = false;
+        return true;
+      }
+      await Promise.all(loading.map((loader) => loader.waitUntilCompletion()));
+    }
+
+    return false;
   }
 
   async *assetsIterator(options?: {
@@ -349,6 +405,10 @@ export class TimelineManager extends VirtualScrollManager {
   }
 
   async loadTimelineMonth(yearMonth: TimelineYearMonth, options?: { cancelable: boolean }): Promise<void> {
+    if (this.#scrubbing && options?.cancelable !== false) {
+      return;
+    }
+
     let cancelable = true;
     if (options) {
       cancelable = options.cancelable;
