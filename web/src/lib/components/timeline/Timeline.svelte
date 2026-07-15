@@ -22,9 +22,9 @@
   import { keyboardManager } from '$lib/stores/keyboard-manager.svelte';
   import { mediaQueryManager } from '$lib/stores/media-query-manager.svelte';
   import { isAssetViewerRoute, navigate } from '$lib/utils/navigation';
-  import '$lib/utils/ios-safari-timeline-scroll.css';
+  import '$lib/utils/ios-safari-overview-shell.css';
+  import { iphoneSafariOverviewShell } from '$lib/utils/ios-safari-overview-shell';
   import { getTimes, type ScrubberListener } from '$lib/utils/timeline-util';
-  import { iphoneSafariTimelineScroll } from '$lib/utils/ios-safari-timeline-scroll';
   import { type AlbumResponseDto, type PersonResponseDto, type UserResponseDto } from '@immich/sdk';
   import { DateTime } from 'luxon';
   import { onDestroy, onMount, tick, type Snippet } from 'svelte';
@@ -667,13 +667,8 @@
   bind:clientHeight={timelineManager.viewportHeight}
   bind:clientWidth={timelineManager.viewportWidth}
   bind:this={scrollableElement}
-  onscroll={() => !documentScrollActive && handleTimelineScrollEvent()}
-  use:iphoneSafariTimelineScroll={{
-    enabled: collapseSafariBars,
-    scrollRange: Math.max(0, timelineManager.maxScroll),
-    onScroll: handleTimelineScrollEvent,
-    onActiveChange: setDocumentScrollActive,
-  }}
+  onscroll={() => (handleTimelineScroll(), timelineManager.updateSlidingWindow(), updateIsScrolling())}
+  use:iphoneSafariOverviewShell={collapseSafariBars}
 >
   <section
     bind:this={timelineElement}
