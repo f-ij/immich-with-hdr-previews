@@ -22,6 +22,8 @@
   import { keyboardManager } from '$lib/stores/keyboard-manager.svelte';
   import { mediaQueryManager } from '$lib/stores/media-query-manager.svelte';
   import { isAssetViewerRoute, navigate } from '$lib/utils/navigation';
+  import '$lib/utils/ios-safari-overview-shell.css';
+  import { iphoneSafariOverviewShell } from '$lib/utils/ios-safari-overview-shell';
   import { getTimes, type ScrubberListener } from '$lib/utils/timeline-util';
   import { type AlbumResponseDto, type PersonResponseDto, type UserResponseDto } from '@immich/sdk';
   import { DateTime } from 'luxon';
@@ -61,6 +63,7 @@
         asset: TimelineAsset,
       ) => void,
     ) => void;
+    collapseSafariBars?: boolean;
   }
 
   let {
@@ -83,6 +86,7 @@
     empty,
     customThumbnailLayout,
     onThumbnailClick,
+    collapseSafariBars = false,
   }: Props = $props();
 
   timelineManager = new TimelineManager();
@@ -608,6 +612,7 @@
   bind:clientWidth={timelineManager.viewportWidth}
   bind:this={scrollableElement}
   onscroll={() => (handleTimelineScroll(), timelineManager.updateSlidingWindow(), updateIsScrolling())}
+  use:iphoneSafariOverviewShell={collapseSafariBars}
 >
   <section
     bind:this={timelineElement}
