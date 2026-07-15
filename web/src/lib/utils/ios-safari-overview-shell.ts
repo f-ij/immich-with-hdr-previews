@@ -21,30 +21,32 @@ const enableDocumentScrollRunway = (): (() => void) => {
   const landscape = globalThis.matchMedia?.('(orientation: landscape)');
   const initialScrollTop = scroller.scrollTop;
 
-  const centerRunway = () => {
+  // Reaching the top lets Safari reveal its bars without a dead drag on the next gesture.
+  const rearmRunway = () => {
     if (landscape?.matches === false) {
       return;
     }
 
-    const center = Math.max(0, scroller.scrollHeight - scroller.clientHeight) / 2;
-    if (Math.abs(scroller.scrollTop - center) > 1) {
-      scroller.scrollTop = center;
+    if (scroller.scrollTop > 1) {
+      scroller.scrollTop = 0;
     }
   };
 
   const onRootScrollEnd = (event: Event) => {
-    if (event.target === document) {
-      centerRunway();
+    if (event.target === document || event.target === scroller) {
+      rearmRunway();
     }
   };
 
   document.addEventListener('scrollend', onRootScrollEnd, { passive: true });
-  landscape?.addEventListener('change', centerRunway);
-  centerRunway();
+  scroller.addEventListener('scrollend', onRootScrollEnd, { passive: true });
+  landscape?.addEventListener('change', rearmRunway);
+  rearmRunway();
 
   return () => {
     document.removeEventListener('scrollend', onRootScrollEnd);
-    landscape?.removeEventListener('change', centerRunway);
+    scroller.removeEventListener('scrollend', onRootScrollEnd);
+    landscape?.removeEventListener('change', rearmRunway);
     scroller.scrollTop = initialScrollTop;
   };
 };
