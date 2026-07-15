@@ -118,12 +118,17 @@ export const enableIphoneSafariTimelineScroll = (
   };
 
   const setScrollRange = (nextScrollRange: number) => {
-    scrollRange = normalizeScrollRange(nextScrollRange);
+    const normalizedScrollRange = normalizeScrollRange(nextScrollRange);
+    if (normalizedScrollRange === scrollRange) {
+      return;
+    }
+
+    scrollRange = normalizedScrollRange;
     pageLayout.style.setProperty(TIMELINE_SCROLL_RANGE_PROPERTY, `${scrollRange}px`);
   };
 
   documentElement.classList.add(TIMELINE_SCROLL_CLASS);
-  setScrollRange(scrollRange);
+  pageLayout.style.setProperty(TIMELINE_SCROLL_RANGE_PROPERTY, `${scrollRange}px`);
   globalThis.addEventListener('scroll', handlePageScroll, { passive: true });
   globalThis.addEventListener(VIEWER_SCROLL_RELEASED_EVENT, handleViewerReleased);
   options.onActiveChange(true, lastScrollTop);
