@@ -127,7 +127,17 @@
     get scrollTop() {
       return Math.min(Math.max(globalThis.scrollY, 0), Math.max(0, timelineManager.maxScroll));
     },
-    scrollTo: (options) => globalThis.scrollTo(options),
+    scrollTo: (options) => {
+      const top = Math.min(Math.max(options.top ?? globalThis.scrollY, 0), Math.max(0, timelineManager.maxScroll));
+
+      // Repeated root-scroll writes at a boundary restart Safari's browser-bar
+      // settling even though the page cannot move, which can stall the scrubber.
+      if (top === documentScrollTarget.scrollTop) {
+        return;
+      }
+
+      globalThis.scrollTo({ ...options, top });
+    },
     scrollBy: (options) => globalThis.scrollBy(options),
   };
 
