@@ -55,6 +55,10 @@ describe(enableIphoneSafariTimelineScroll.name, () => {
     expect(onActiveChange).toHaveBeenCalledWith(true, 41);
     expect(scrollTo).toHaveBeenLastCalledWith(0, 41);
 
+    const setProperty = vi.spyOn(pageLayout.style, 'setProperty');
+    controller.update({ enabled: true, scrollRange: 500, onScroll, onActiveChange });
+    expect(setProperty).not.toHaveBeenCalled();
+
     vi.stubGlobal('scrollY', 120);
     globalThis.dispatchEvent(new Event('scroll'));
     expect(onScroll).toHaveBeenCalledOnce();

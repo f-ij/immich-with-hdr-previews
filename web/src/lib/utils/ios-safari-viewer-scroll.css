@@ -45,6 +45,7 @@ html.ios-safari-timeline-scroll #sidebar {
 html.ios-safari-timeline-scroll [data-id='scrubber'] {
   position: fixed;
   top: var(--navbar-height);
+  touch-action: none;
 }
 
 html.ios-safari-timeline-scroll::-webkit-scrollbar,
