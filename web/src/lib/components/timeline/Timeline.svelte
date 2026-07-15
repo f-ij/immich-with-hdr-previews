@@ -606,6 +606,8 @@
     {viewportTopMonthScrollPercent}
     {viewportTopMonth}
     {onScrub}
+    startScrub={() => timelineManager.setScrubbing(documentScrollActive)}
+    stopScrub={() => timelineManager.setScrubbing(false)}
     bind:scrubberWidth
     onScrubKeyDown={(evt) => {
       evt.preventDefault();
