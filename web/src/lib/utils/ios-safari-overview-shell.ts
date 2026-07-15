@@ -16,6 +16,39 @@ const getPageRoot = (element: HTMLElement): HTMLElement | null => {
   return element.parentElement === document.body ? element : null;
 };
 
+const enableDocumentScrollRunway = (): (() => void) => {
+  const scroller = document.scrollingElement ?? document.documentElement;
+  const landscape = globalThis.matchMedia?.('(orientation: landscape)');
+  const initialScrollTop = scroller.scrollTop;
+
+  const centerRunway = () => {
+    if (landscape?.matches === false) {
+      return;
+    }
+
+    const center = Math.max(0, scroller.scrollHeight - scroller.clientHeight) / 2;
+    if (Math.abs(scroller.scrollTop - center) > 1) {
+      scroller.scrollTop = center;
+    }
+  };
+
+  const onRootScrollEnd = (event: Event) => {
+    if (event.target === document) {
+      centerRunway();
+    }
+  };
+
+  document.addEventListener('scrollend', onRootScrollEnd, { passive: true });
+  landscape?.addEventListener('change', centerRunway);
+  centerRunway();
+
+  return () => {
+    document.removeEventListener('scrollend', onRootScrollEnd);
+    landscape?.removeEventListener('change', centerRunway);
+    scroller.scrollTop = initialScrollTop;
+  };
+};
+
 export const enableIphoneSafariOverviewShell = (
   timeline: HTMLElement,
   environment: IphoneSafariEnvironment = getIphoneSafariEnvironment(),
@@ -31,8 +64,10 @@ export const enableIphoneSafariOverviewShell = (
 
   document.documentElement.classList.add(OVERVIEW_SHELL_CLASS);
   pageRoot.setAttribute(OVERVIEW_SHELL_ATTRIBUTE, '');
+  const disableScrollRunway = enableDocumentScrollRunway();
 
   return () => {
+    disableScrollRunway();
     document.documentElement.classList.remove(OVERVIEW_SHELL_CLASS);
     pageRoot.removeAttribute(OVERVIEW_SHELL_ATTRIBUTE);
   };

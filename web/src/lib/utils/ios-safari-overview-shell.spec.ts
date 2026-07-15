@@ -18,11 +18,26 @@ const addTimeline = () => {
   return { root, timeline };
 };
 
+const setDocumentScrollRange = (scrollHeight: number, clientHeight: number) => {
+  const scroller = document.scrollingElement ?? document.documentElement;
+  Object.defineProperties(scroller, {
+    scrollHeight: { configurable: true, value: scrollHeight },
+    clientHeight: { configurable: true, value: clientHeight },
+  });
+  scroller.scrollTop = 0;
+  return scroller;
+};
+
 afterEach(() => {
   document.documentElement.classList.remove('ios-safari-overview-shell');
+  const scroller = document.scrollingElement ?? document.documentElement;
+  Reflect.deleteProperty(scroller, 'scrollHeight');
+  Reflect.deleteProperty(scroller, 'clientHeight');
+  scroller.scrollTop = 0;
   for (const root of document.querySelectorAll('[data-test-overview-root]')) {
     root.remove();
   }
+  vi.unstubAllGlobals();
 });
 
 describe(enableIphoneSafariOverviewShell.name, () => {
@@ -52,5 +67,28 @@ describe(enableIphoneSafariOverviewShell.name, () => {
     expect(document.documentElement).not.toHaveClass('ios-safari-overview-shell');
     expect(root).not.toHaveAttribute('data-ios-safari-overview-shell');
     disable();
+  });
+
+  it('recenters the root scroll runway after native scrolling ends', () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    const scroller = setDocumentScrollRange(612, 100);
+    const { timeline } = addTimeline();
+
+    const disable = enableIphoneSafariOverviewShell(timeline, iphoneSafari);
+    expect(scroller.scrollTop).toBe(256);
+
+    scroller.scrollTop = 500;
+    timeline.dispatchEvent(new Event('scrollend', { bubbles: true }));
+    expect(scroller.scrollTop).toBe(500);
+
+    document.dispatchEvent(new Event('scrollend'));
+    expect(scroller.scrollTop).toBe(256);
+
+    disable();
+    expect(scroller.scrollTop).toBe(0);
   });
 });
