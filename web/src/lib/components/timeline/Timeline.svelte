@@ -338,6 +338,27 @@
     }
   };
 
+  const startDocumentScrub = () => {
+    if (documentScrollActive) {
+      timelineManager.startScrubbing();
+    }
+  };
+
+  const stopDocumentScrub: ScrubberListener = async (scrubberData) => {
+    if (!documentScrollActive) {
+      return;
+    }
+
+    const settled = await timelineManager.stopScrubbing();
+    if (!settled || !documentScrollActive) {
+      return;
+    }
+
+    // Deferred months now have their actual heights, so map the pointer's final
+    // date position once instead of letting each loaded month move root scroll.
+    void onScrub(scrubberData);
+  };
+
   // note: don't throttle, debounce, or otherwise make this function async - it causes flicker
   const handleTimelineScroll = () => {
     if (!scrollableElement) {
@@ -616,8 +637,8 @@
     {viewportTopMonthScrollPercent}
     {viewportTopMonth}
     {onScrub}
-    startScrub={() => timelineManager.setScrubbing(documentScrollActive)}
-    stopScrub={() => timelineManager.setScrubbing(false)}
+    startScrub={startDocumentScrub}
+    stopScrub={stopDocumentScrub}
     bind:scrubberWidth
     onScrubKeyDown={(evt) => {
       evt.preventDefault();

@@ -98,7 +98,9 @@ export class TimelineManager extends VirtualScrollManager {
   static #INIT_OPTIONS = {};
   #websocketSupport: WebsocketSupport | undefined;
   #options: TimelineManagerOptions = TimelineManager.#INIT_OPTIONS;
+  #scrubSession = 0;
   #scrubbing = false;
+  #settlingScrub = false;
   #updatingViewportProximities = false;
   #scrollableElement: TimelineScrollTarget | undefined = $state();
   #showAssetOwners = new PersistedLocalStorage<boolean>('album-show-asset-owners', false);
@@ -144,28 +146,51 @@ export class TimelineManager extends VirtualScrollManager {
     this.updateSlidingWindow();
   }
 
-  setScrubbing(value: boolean) {
-    if (this.#scrubbing === value) {
-      return;
-    }
+  get layoutScrollCompensationEnabled() {
+    return !this.#scrubbing && !this.#settlingScrub;
+  }
 
-    this.#scrubbing = value;
-    if (value) {
-      // Loading changes estimated month heights. In document-scroll mode that moves
-      // the page beneath the scrubber, so keep its geometry stable until release.
-      for (const month of this.months) {
-        if (month.loader?.loading) {
-          month.cancel();
-        }
+  startScrubbing() {
+    this.#scrubSession++;
+    this.#scrubbing = true;
+    this.#settlingScrub = false;
+
+    // Loading replaces estimated month heights with actual ones. Cancel work that
+    // could finish during a document-scroll drag and move the page under the pointer.
+    for (const month of this.months) {
+      if (month.loader?.loading) {
+        month.cancel();
       }
-      return;
+    }
+  }
+
+  async stopScrubbing(): Promise<boolean> {
+    if (!this.#scrubbing) {
+      return false;
     }
 
+    const scrubSession = this.#scrubSession;
+    this.#scrubbing = false;
+    this.#settlingScrub = true;
+
+    // Settle the visible loading batch without applying a scroll correction for
+    // every month. Timeline.svelte reapplies the final scrub target once afterward.
     for (const month of this.months) {
       if (month.isInOrNearViewport) {
         void this.loadTimelineMonth(month.yearMonth);
       }
     }
+
+    while (scrubSession === this.#scrubSession) {
+      const loading = this.months.flatMap((month) => (month.loader?.loading ? [month.loader] : []));
+      if (loading.length === 0) {
+        this.#settlingScrub = false;
+        return true;
+      }
+      await Promise.all(loading.map((loader) => loader.waitUntilCompletion()));
+    }
+
+    return false;
   }
 
   async *assetsIterator(options?: {

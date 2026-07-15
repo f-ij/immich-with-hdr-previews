@@ -75,17 +75,41 @@ describe('TimelineManager', () => {
       expect(sdkMock.getTimeBucket).toHaveBeenCalledTimes(2);
     });
 
-    it('defers viewport loads while scrubbing', async () => {
+    it('defers viewport loads until scrub settlement', async () => {
       const month = timelineManager.months.at(-1)!;
-      timelineManager.setScrubbing(true);
+      timelineManager.startScrubbing();
       month.viewportProximity = ViewportProximity.InViewport;
 
       await tick();
       expect(sdkMock.getTimeBucket).toHaveBeenCalledTimes(2);
+      expect(timelineManager.layoutScrollCompensationEnabled).toBe(false);
 
-      timelineManager.setScrubbing(false);
-      await month.loader?.waitUntilCompletion();
+      await expect(timelineManager.stopScrubbing()).resolves.toBe(true);
       expect(sdkMock.getTimeBucket).toHaveBeenCalledTimes(3);
+      expect(timelineManager.layoutScrollCompensationEnabled).toBe(true);
+    });
+
+    it('does not finish a stale settlement after another scrub starts', async () => {
+      const month = timelineManager.months.at(-1)!;
+      let resolveBucket!: (response: TimeBucketAssetResponseDto) => void;
+      sdkMock.getTimeBucket.mockImplementationOnce(
+        () =>
+          new Promise<TimeBucketAssetResponseDto>((resolve) => {
+            resolveBucket = resolve;
+          }),
+      );
+
+      timelineManager.startScrubbing();
+      month.viewportProximity = ViewportProximity.InViewport;
+      const firstSettlement = timelineManager.stopScrubbing();
+
+      timelineManager.startScrubbing();
+      resolveBucket(bucketAssetsResponse['2024-01-01T00:00:00.000Z']);
+
+      await expect(firstSettlement).resolves.toBe(false);
+      expect(timelineManager.layoutScrollCompensationEnabled).toBe(false);
+      await expect(timelineManager.stopScrubbing()).resolves.toBe(true);
+      expect(timelineManager.layoutScrollCompensationEnabled).toBe(true);
     });
 
     it('calculates month height', () => {
