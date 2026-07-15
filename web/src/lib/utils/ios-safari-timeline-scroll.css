@@ -1,0 +1,70 @@
+/* Safari requires a root-page scroll range before it will collapse its address and tab bars. */
+html.ios-safari-timeline-scroll,
+html.ios-safari-timeline-scroll body {
+  overscroll-behavior-y: none;
+  scrollbar-width: none;
+}
+
+html.ios-safari-timeline-scroll:not(.ios-safari-viewer-scroll) body {
+  overflow-y: scroll;
+}
+
+html.ios-safari-timeline-scroll [data-user-page-navbar] {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  background-color: rgb(var(--immich-bg));
+}
+
+html.ios-safari-timeline-scroll.dark [data-user-page-navbar] {
+  background-color: rgb(var(--immich-dark-bg));
+}
+
+html.ios-safari-timeline-scroll [data-user-page-layout] {
+  height: calc(100dvh - var(--navbar-height) + var(--ios-safari-timeline-scroll-range, 0px));
+  overflow: visible;
+}
+
+html.ios-safari-timeline-scroll [data-user-page-scroll-container] {
+  overflow: visible;
+}
+
+html.ios-safari-timeline-scroll #asset-grid {
+  height: calc(100dvh - var(--navbar-height));
+  overflow: visible;
+  contain: size layout style;
+}
+
+html.ios-safari-timeline-scroll #sidebar {
+  position: sticky;
+  top: var(--navbar-height);
+  align-self: start;
+  height: calc(100dvh - var(--navbar-height));
+}
+
+html.ios-safari-timeline-scroll [data-id='scrubber'] {
+  position: fixed;
+  top: var(--navbar-height);
+  touch-action: none;
+}
+
+html.ios-safari-timeline-scroll::-webkit-scrollbar,
+html.ios-safari-timeline-scroll body::-webkit-scrollbar {
+  display: none;
+}
+
+@media (width < 48rem) {
+  html.ios-safari-timeline-scroll [data-user-page-layout] {
+    height: calc(100dvh - var(--navbar-height-md) + var(--ios-safari-timeline-scroll-range, 0px));
+  }
+
+  html.ios-safari-timeline-scroll #asset-grid,
+  html.ios-safari-timeline-scroll #sidebar {
+    height: calc(100dvh - var(--navbar-height-md));
+  }
+
+  html.ios-safari-timeline-scroll #sidebar,
+  html.ios-safari-timeline-scroll [data-id='scrubber'] {
+    top: var(--navbar-height-md);
+  }
+}

@@ -1,4 +1,8 @@
-import { enableIphoneSafariTimelineScroll, enableIphoneSafariViewerScroll } from '$lib/utils/ios-safari-viewer-scroll';
+import {
+  IPHONE_SAFARI_VIEWER_SCROLL_CLASS,
+  IPHONE_SAFARI_VIEWER_SCROLL_RELEASED_EVENT,
+} from '$lib/utils/ios-safari-scroll';
+import { enableIphoneSafariTimelineScroll } from '$lib/utils/ios-safari-timeline-scroll';
 
 const iphoneSafari = {
   userAgent:
@@ -72,10 +76,8 @@ describe(enableIphoneSafariTimelineScroll.name, () => {
   });
 
   it('suspends timeline updates while the asset viewer owns document scrolling', () => {
-    const { root, timeline } = addTimeline();
+    const { timeline } = addTimeline();
     timeline.scrollTop = 300;
-    const viewer = document.createElement('section');
-    root.append(viewer);
     vi.stubGlobal('scrollX', 0);
     vi.stubGlobal('scrollY', 100);
     const scrollTo = vi.spyOn(globalThis, 'scrollTo').mockImplementation(() => {});
@@ -86,13 +88,14 @@ describe(enableIphoneSafariTimelineScroll.name, () => {
       { enabled: true, scrollRange: 500, onScroll, onActiveChange },
       iphoneSafari,
     );
-    const disableViewerScroll = enableIphoneSafariViewerScroll(viewer, iphoneSafari);
+    document.documentElement.classList.add(IPHONE_SAFARI_VIEWER_SCROLL_CLASS);
     onScroll.mockClear();
 
     globalThis.dispatchEvent(new Event('scroll'));
     expect(onScroll).not.toHaveBeenCalled();
 
-    disableViewerScroll();
+    document.documentElement.classList.remove(IPHONE_SAFARI_VIEWER_SCROLL_CLASS);
+    globalThis.dispatchEvent(new Event(IPHONE_SAFARI_VIEWER_SCROLL_RELEASED_EVENT));
     expect(onScroll).toHaveBeenCalledOnce();
     expect(scrollTo).toHaveBeenLastCalledWith(0, 300);
 

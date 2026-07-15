@@ -22,9 +22,9 @@
   import { keyboardManager } from '$lib/stores/keyboard-manager.svelte';
   import { mediaQueryManager } from '$lib/stores/media-query-manager.svelte';
   import { isAssetViewerRoute, navigate } from '$lib/utils/navigation';
-  import '$lib/utils/ios-safari-viewer-scroll.css';
+  import '$lib/utils/ios-safari-timeline-scroll.css';
   import { getTimes, type ScrubberListener } from '$lib/utils/timeline-util';
-  import { iphoneSafariTimelineScroll } from '$lib/utils/ios-safari-viewer-scroll';
+  import { iphoneSafariTimelineScroll } from '$lib/utils/ios-safari-timeline-scroll';
   import { type AlbumResponseDto, type PersonResponseDto, type UserResponseDto } from '@immich/sdk';
   import { DateTime } from 'luxon';
   import { onDestroy, onMount, tick, type Snippet } from 'svelte';
@@ -127,7 +127,17 @@
     get scrollTop() {
       return Math.min(Math.max(globalThis.scrollY, 0), Math.max(0, timelineManager.maxScroll));
     },
-    scrollTo: (options) => globalThis.scrollTo(options),
+    scrollTo: (options) => {
+      const top = Math.min(Math.max(options.top ?? globalThis.scrollY, 0), Math.max(0, timelineManager.maxScroll));
+
+      // Repeated root-scroll writes at a boundary restart Safari's browser-bar
+      // settling even though the page cannot move, which can stall the scrubber.
+      if (top === documentScrollTarget.scrollTop) {
+        return;
+      }
+
+      globalThis.scrollTo({ ...options, top });
+    },
     scrollBy: (options) => globalThis.scrollBy(options),
   };
 
@@ -326,6 +336,27 @@
       }
       scrollToSegmentPercentage(timelineMonth.top, timelineMonth.height, scrubberMonthScrollPercent);
     }
+  };
+
+  const startDocumentScrub = () => {
+    if (documentScrollActive) {
+      timelineManager.startScrubbing();
+    }
+  };
+
+  const stopDocumentScrub: ScrubberListener = async (scrubberData) => {
+    if (!documentScrollActive) {
+      return;
+    }
+
+    const settled = await timelineManager.stopScrubbing();
+    if (!settled || !documentScrollActive) {
+      return;
+    }
+
+    // Deferred months now have their actual heights, so map the pointer's final
+    // date position once instead of letting each loaded month move root scroll.
+    void onScrub(scrubberData);
   };
 
   // note: don't throttle, debounce, or otherwise make this function async - it causes flicker
@@ -606,6 +637,8 @@
     {viewportTopMonthScrollPercent}
     {viewportTopMonth}
     {onScrub}
+    startScrub={startDocumentScrub}
+    stopScrub={stopDocumentScrub}
     bind:scrubberWidth
     onScrubKeyDown={(evt) => {
       evt.preventDefault();

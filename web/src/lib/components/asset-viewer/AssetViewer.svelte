@@ -25,7 +25,8 @@
   import { navigateToAsset } from '$lib/utils/asset-utils';
   import { handleError } from '$lib/utils/handle-error';
   import { InvocationTracker } from '$lib/utils/invocationTracker';
-  import { enableIphoneSafariViewerScroll, isIphoneSafariTab } from '$lib/utils/ios-safari-viewer-scroll';
+  import { isIphoneSafariTab } from '$lib/utils/ios-safari-scroll';
+  import { enableIphoneSafariViewerScroll } from '$lib/utils/ios-safari-viewer-scroll';
   import '$lib/utils/ios-safari-viewer-scroll.css';
   import { SlideshowHistory } from '$lib/utils/slideshow-history';
   import { toTimelineAsset } from '$lib/utils/timeline-util';
