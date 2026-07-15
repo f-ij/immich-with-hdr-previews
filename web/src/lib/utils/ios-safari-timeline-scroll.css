@@ -6,6 +6,7 @@ html.ios-safari-timeline-scroll body {
 }
 
 html.ios-safari-timeline-scroll:not(.ios-safari-viewer-scroll) body {
+  height: calc(100dvh + var(--ios-safari-timeline-scroll-range, 0px));
   overflow-y: scroll;
 }
 
@@ -21,7 +22,8 @@ html.ios-safari-timeline-scroll.dark [data-user-page-navbar] {
 }
 
 html.ios-safari-timeline-scroll [data-user-page-layout] {
-  height: calc(100dvh - var(--navbar-height) + var(--ios-safari-timeline-scroll-range, 0px));
+  /* Keep Immich's app shell viewport-sized; only the body needs the native scroll range. */
+  height: calc(100dvh - var(--navbar-height));
   overflow: visible;
 }
 
@@ -55,7 +57,7 @@ html.ios-safari-timeline-scroll body::-webkit-scrollbar {
 
 @media (width < 48rem) {
   html.ios-safari-timeline-scroll [data-user-page-layout] {
-    height: calc(100dvh - var(--navbar-height-md) + var(--ios-safari-timeline-scroll-range, 0px));
+    height: calc(100dvh - var(--navbar-height-md));
   }
 
   html.ios-safari-timeline-scroll #asset-grid,
