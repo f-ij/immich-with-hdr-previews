@@ -2,6 +2,7 @@ import { AssetVisibility, type AssetResponseDto, type TimeBucketAssetResponseDto
 import { tick } from 'svelte';
 import { sdkMock } from '$lib/__mocks__/sdk.mock';
 import { eventManager } from '$lib/managers/event-manager.svelte';
+import { ViewportProximity } from '$lib/managers/timeline-manager/internal/intersection-support.svelte';
 import { getTimelineMonthByDate } from '$lib/managers/timeline-manager/internal/search-support.svelte';
 import { AbortError } from '$lib/utils';
 import { fromISODateTimeUTCToObject } from '$lib/utils/timeline-util';
@@ -72,6 +73,19 @@ describe('TimelineManager', () => {
     it('should load months in viewport', () => {
       expect(sdkMock.getTimeBuckets).toBeCalledTimes(1);
       expect(sdkMock.getTimeBucket).toHaveBeenCalledTimes(2);
+    });
+
+    it('defers viewport loads while scrubbing', async () => {
+      const month = timelineManager.months.at(-1)!;
+      timelineManager.setScrubbing(true);
+      month.viewportProximity = ViewportProximity.InViewport;
+
+      await tick();
+      expect(sdkMock.getTimeBucket).toHaveBeenCalledTimes(2);
+
+      timelineManager.setScrubbing(false);
+      await month.loader?.waitUntilCompletion();
+      expect(sdkMock.getTimeBucket).toHaveBeenCalledTimes(3);
     });
 
     it('calculates month height', () => {

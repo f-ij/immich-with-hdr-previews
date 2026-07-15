@@ -98,6 +98,7 @@ export class TimelineManager extends VirtualScrollManager {
   static #INIT_OPTIONS = {};
   #websocketSupport: WebsocketSupport | undefined;
   #options: TimelineManagerOptions = TimelineManager.#INIT_OPTIONS;
+  #scrubbing = false;
   #updatingViewportProximities = false;
   #scrollableElement: TimelineScrollTarget | undefined = $state();
   #showAssetOwners = new PersistedLocalStorage<boolean>('album-show-asset-owners', false);
@@ -141,6 +142,30 @@ export class TimelineManager extends VirtualScrollManager {
   scrollBy(y: number, behavior: ScrollBehavior = 'auto') {
     this.#scrollableElement?.scrollBy({ top: y, behavior });
     this.updateSlidingWindow();
+  }
+
+  setScrubbing(value: boolean) {
+    if (this.#scrubbing === value) {
+      return;
+    }
+
+    this.#scrubbing = value;
+    if (value) {
+      // Loading changes estimated month heights. In document-scroll mode that moves
+      // the page beneath the scrubber, so keep its geometry stable until release.
+      for (const month of this.months) {
+        if (month.loader?.loading) {
+          month.cancel();
+        }
+      }
+      return;
+    }
+
+    for (const month of this.months) {
+      if (month.isInOrNearViewport) {
+        void this.loadTimelineMonth(month.yearMonth);
+      }
+    }
   }
 
   async *assetsIterator(options?: {
@@ -355,6 +380,10 @@ export class TimelineManager extends VirtualScrollManager {
   }
 
   async loadTimelineMonth(yearMonth: TimelineYearMonth, options?: { cancelable: boolean }): Promise<void> {
+    if (this.#scrubbing && options?.cancelable !== false) {
+      return;
+    }
+
     let cancelable = true;
     if (options) {
       cancelable = options.cancelable;
