@@ -2,7 +2,7 @@ import {
   IPHONE_SAFARI_VIEWER_SCROLL_CLASS,
   IPHONE_SAFARI_VIEWER_SCROLL_RELEASED_EVENT,
 } from '$lib/utils/ios-safari-scroll';
-import { enableIphoneSafariTimelineScroll } from '$lib/utils/ios-safari-viewer-scroll';
+import { enableIphoneSafariTimelineScroll } from '$lib/utils/ios-safari-timeline-scroll';
 
 const iphoneSafari = {
   userAgent:

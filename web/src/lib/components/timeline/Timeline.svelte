@@ -22,9 +22,9 @@
   import { keyboardManager } from '$lib/stores/keyboard-manager.svelte';
   import { mediaQueryManager } from '$lib/stores/media-query-manager.svelte';
   import { isAssetViewerRoute, navigate } from '$lib/utils/navigation';
-  import '$lib/utils/ios-safari-viewer-scroll.css';
+  import '$lib/utils/ios-safari-timeline-scroll.css';
   import { getTimes, type ScrubberListener } from '$lib/utils/timeline-util';
-  import { iphoneSafariTimelineScroll } from '$lib/utils/ios-safari-viewer-scroll';
+  import { iphoneSafariTimelineScroll } from '$lib/utils/ios-safari-timeline-scroll';
   import { type AlbumResponseDto, type PersonResponseDto, type UserResponseDto } from '@immich/sdk';
   import { DateTime } from 'luxon';
   import { onDestroy, onMount, tick, type Snippet } from 'svelte';
