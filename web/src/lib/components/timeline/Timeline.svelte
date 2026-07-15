@@ -96,6 +96,7 @@
   let scrollableElement: HTMLElement | undefined = $state();
   let timelineElement: HTMLElement | undefined = $state();
   let documentScrollActive = $state(false);
+  let documentScrubActive = false;
   let invisible = $state(true);
   // The percentage of scroll through the month that is currently intersecting the top boundary of the viewport.
   // Note: There may be multiple months visible within the viewport at any given time.
@@ -142,11 +143,14 @@
   };
 
   $effect(() => {
-    timelineManager.scrollableElement = documentScrollActive ? documentScrollTarget : scrollableElement;
+    timelineManager.scrollableElement =
+      documentScrollActive && !documentScrubActive ? documentScrollTarget : scrollableElement;
   });
 
   const setDocumentScrollActive = (active: boolean, scrollTop: number) => {
     documentScrollActive = active;
+    documentScrubActive = false;
+    scrollableElement?.removeAttribute('data-ios-safari-internal-scrub');
     timelineManager.scrollableElement = active ? documentScrollTarget : scrollableElement;
     if (!active && scrollableElement) {
       scrollableElement.scrollTop = scrollTop;
@@ -339,24 +343,35 @@
   };
 
   const startDocumentScrub = () => {
-    if (documentScrollActive) {
-      timelineManager.startScrubbing();
+    if (!documentScrollActive || !scrollableElement) {
+      return;
     }
+
+    timelineManager.startScrubbing();
+    documentScrubActive = true;
+    scrollableElement.setAttribute('data-ios-safari-internal-scrub', '');
+    scrollableElement.scrollTop = documentScrollTarget.scrollTop;
+    timelineManager.scrollableElement = scrollableElement;
   };
 
   const stopDocumentScrub: ScrubberListener = async (scrubberData) => {
-    if (!documentScrollActive) {
+    if (!documentScrollActive || !documentScrubActive || !scrollableElement) {
       return;
     }
 
     const settled = await timelineManager.stopScrubbing();
-    if (!settled || !documentScrollActive) {
+    if (!settled || !documentScrollActive || !documentScrubActive) {
       return;
     }
 
-    // Deferred months now have their actual heights, so map the pointer's final
-    // date position once instead of letting each loaded month move root scroll.
-    void onScrub(scrubberData);
+    // Settle against Immich's bounded scroller, then hand the final position back
+    // to the document in one jump instead of traversing the root page while dragging.
+    onScrub(scrubberData);
+    documentScrollTarget.scrollTo({ top: scrollableElement.scrollTop });
+    documentScrubActive = false;
+    scrollableElement.removeAttribute('data-ios-safari-internal-scrub');
+    timelineManager.scrollableElement = documentScrollTarget;
+    handleTimelineScrollEvent();
   };
 
   // note: don't throttle, debounce, or otherwise make this function async - it causes flicker
@@ -667,7 +682,7 @@
   bind:clientHeight={timelineManager.viewportHeight}
   bind:clientWidth={timelineManager.viewportWidth}
   bind:this={scrollableElement}
-  onscroll={() => !documentScrollActive && handleTimelineScrollEvent()}
+  onscroll={() => (!documentScrollActive || documentScrubActive) && handleTimelineScrollEvent()}
   use:iphoneSafariTimelineScroll={{
     enabled: collapseSafariBars,
     scrollRange: Math.max(0, timelineManager.maxScroll),

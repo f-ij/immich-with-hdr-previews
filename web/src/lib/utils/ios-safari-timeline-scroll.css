@@ -35,6 +35,16 @@ html.ios-safari-timeline-scroll #asset-grid {
   contain: size layout style;
 }
 
+/* Use Immich's bounded scroller while the timeline handle is being dragged. */
+html.ios-safari-timeline-scroll #asset-grid[data-ios-safari-internal-scrub] {
+  position: fixed;
+  z-index: 0;
+  top: var(--navbar-height);
+  right: 0;
+  left: 0;
+  overflow-y: auto;
+}
+
 html.ios-safari-timeline-scroll #sidebar {
   position: sticky;
   top: var(--navbar-height);
@@ -65,6 +75,10 @@ html.ios-safari-timeline-scroll body::-webkit-scrollbar {
 
   html.ios-safari-timeline-scroll #sidebar,
   html.ios-safari-timeline-scroll [data-id='scrubber'] {
+    top: var(--navbar-height-md);
+  }
+
+  html.ios-safari-timeline-scroll #asset-grid[data-ios-safari-internal-scrub] {
     top: var(--navbar-height-md);
   }
 }
