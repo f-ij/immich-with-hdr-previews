@@ -69,24 +69,28 @@ describe(enableIphoneSafariOverviewShell.name, () => {
     disable();
   });
 
-  it('recenters the root scroll runway after native scrolling ends', () => {
+  it('rearms the root scroll runway at the top after native scrolling ends', () => {
     vi.stubGlobal('matchMedia', () => ({
       matches: true,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     }));
-    const scroller = setDocumentScrollRange(612, 100);
+    const scroller = setDocumentScrollRange(228, 100);
     const { timeline } = addTimeline();
 
     const disable = enableIphoneSafariOverviewShell(timeline, iphoneSafari);
-    expect(scroller.scrollTop).toBe(256);
+    expect(scroller.scrollTop).toBe(0);
 
-    scroller.scrollTop = 500;
+    scroller.scrollTop = 100;
     timeline.dispatchEvent(new Event('scrollend', { bubbles: true }));
-    expect(scroller.scrollTop).toBe(500);
+    expect(scroller.scrollTop).toBe(100);
 
+    scroller.dispatchEvent(new Event('scrollend'));
+    expect(scroller.scrollTop).toBe(0);
+
+    scroller.scrollTop = 100;
     document.dispatchEvent(new Event('scrollend'));
-    expect(scroller.scrollTop).toBe(256);
+    expect(scroller.scrollTop).toBe(0);
 
     disable();
     expect(scroller.scrollTop).toBe(0);

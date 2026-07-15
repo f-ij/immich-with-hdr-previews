@@ -8,7 +8,7 @@
 
   html.ios-safari-overview-shell body {
     /* Keep the scroll runway stable while Safari resizes its dynamic viewport. */
-    height: calc(100lvh + 512px);
+    height: calc(100lvh + 128px);
     overflow-y: scroll;
   }
 
