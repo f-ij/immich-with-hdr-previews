@@ -498,6 +498,7 @@
   onmouseup={({ clientY }) => handleMouseEvent({ clientY, isDragging: false })}
 />
 
+<!-- The scrubber owns drag gestures; do not also pan an ancestor scroller. -->
 <div
   transition:fly={{ x: 50, duration: 250 }}
   tabindex="0"
@@ -508,7 +509,7 @@
   aria-valuemax={toScrollY(1)}
   aria-valuemin={toScrollY(0)}
   data-id="scrubber"
-  class="absolute inset-e-0 z-1 select-none hover:cursor-row-resize"
+  class="absolute inset-e-0 z-1 touch-none select-none hover:cursor-row-resize"
   style:padding-top={PADDING_TOP + 'px'}
   style:padding-bottom={PADDING_BOTTOM + 'px'}
   style:width
