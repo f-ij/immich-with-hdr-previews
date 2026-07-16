@@ -5,7 +5,6 @@ export type IphoneSafariEnvironment = {
 };
 
 export const IPHONE_SAFARI_VIEWER_SCROLL_CLASS = 'ios-safari-viewer-scroll';
-export const IPHONE_SAFARI_VIEWER_SCROLL_RELEASED_EVENT = 'immich:iphone-safari-viewer-scroll-released';
 
 const IOS_ALTERNATIVE_BROWSER = /CriOS|EdgiOS|FxiOS|OPiOS/;
 
