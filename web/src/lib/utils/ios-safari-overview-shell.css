@@ -20,8 +20,23 @@
     overflow: hidden;
   }
 
+  /* Safari lets page chrome follow vertical gestures begun in a nested horizontal scroller. */
+  html.ios-safari-overview-shell #virtual-timeline {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  html.ios-safari-overview-shell #virtual-timeline::after {
+    display: block;
+    width: calc(100% + 1px);
+    height: 1px;
+    content: '';
+    pointer-events: none;
+  }
+
   html.ios-safari-overview-shell::-webkit-scrollbar,
-  html.ios-safari-overview-shell body::-webkit-scrollbar {
+  html.ios-safari-overview-shell body::-webkit-scrollbar,
+  html.ios-safari-overview-shell #virtual-timeline::-webkit-scrollbar {
     display: none;
   }
 }
