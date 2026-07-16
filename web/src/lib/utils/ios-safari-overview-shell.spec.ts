@@ -28,6 +28,12 @@ const setDocumentScrollRange = (scrollHeight: number, clientHeight: number) => {
   return scroller;
 };
 
+const dispatchTouch = (element: HTMLElement, type: string, touches: Array<{ clientX: number; clientY: number }>) => {
+  const event = new Event(type, { bubbles: true });
+  Object.defineProperty(event, 'touches', { value: touches });
+  element.dispatchEvent(event);
+};
+
 afterEach(() => {
   document.documentElement.classList.remove('ios-safari-overview-shell');
   const scroller = document.scrollingElement ?? document.documentElement;
@@ -94,5 +100,65 @@ describe(enableIphoneSafariOverviewShell.name, () => {
 
     disable();
     expect(scroller.scrollTop).toBe(0);
+  });
+
+  it('drives timeline scrolling from a vertical single-touch gesture', () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    const { timeline } = addTimeline();
+    const disable = enableIphoneSafariOverviewShell(timeline, iphoneSafari);
+
+    dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 200 }]);
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 150 }]);
+    expect(timeline.scrollTop).toBe(87);
+
+    disable();
+    dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 200 }]);
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 150 }]);
+    expect(timeline.scrollTop).toBe(87);
+  });
+
+  it('does not drive timeline scrolling from taps, horizontal gestures, or pinches', () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    const { timeline } = addTimeline();
+    const disable = enableIphoneSafariOverviewShell(timeline, iphoneSafari);
+
+    dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 200 }]);
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 98, clientY: 197 }]);
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 50, clientY: 195 }]);
+    expect(timeline.scrollTop).toBe(37);
+
+    dispatchTouch(timeline, 'touchstart', [
+      { clientX: 100, clientY: 200 },
+      { clientX: 200, clientY: 200 },
+    ]);
+    dispatchTouch(timeline, 'touchmove', [
+      { clientX: 100, clientY: 150 },
+      { clientX: 200, clientY: 250 },
+    ]);
+    expect(timeline.scrollTop).toBe(37);
+    disable();
+  });
+
+  it('does not drive timeline scrolling in portrait', () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    const { timeline } = addTimeline();
+    const disable = enableIphoneSafariOverviewShell(timeline, iphoneSafari);
+
+    dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 200 }]);
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 150 }]);
+    expect(timeline.scrollTop).toBe(37);
+    disable();
   });
 });
