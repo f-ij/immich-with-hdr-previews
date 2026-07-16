@@ -289,10 +289,7 @@ export class TimelineMonth {
         timelineMonth.#top = newTop;
       }
     }
-    // During an iPhone Safari scrub release, the manager batches loaded height
-    // changes and Timeline reapplies one final target. Per-month scroll writes here
-    // would make WebKit alternate between those corrections and the scrubber.
-    if (!timelineManager.layoutScrollCompensationEnabled || !timelineManager.viewportTopMonthIntersection) {
+    if (!timelineManager.viewportTopMonthIntersection) {
       return;
     }
     const { month, monthBottomViewportRatio, viewportTopRatioInMonth } = timelineManager.viewportTopMonthIntersection;

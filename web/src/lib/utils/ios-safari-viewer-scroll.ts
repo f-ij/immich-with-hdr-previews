@@ -1,7 +1,6 @@
 import {
   getIphoneSafariEnvironment,
   IPHONE_SAFARI_VIEWER_SCROLL_CLASS,
-  IPHONE_SAFARI_VIEWER_SCROLL_RELEASED_EVENT,
   isIphoneSafariTab,
   type IphoneSafariEnvironment,
 } from '$lib/utils/ios-safari-scroll';
@@ -39,6 +38,5 @@ export const enableIphoneSafariViewerScroll = (
     document.documentElement.classList.remove(IPHONE_SAFARI_VIEWER_SCROLL_CLASS);
     viewerRoot.removeAttribute(VIEWER_SCROLL_ROOT_ATTRIBUTE);
     globalThis.scrollTo(scrollX, scrollY);
-    globalThis.dispatchEvent(new Event(IPHONE_SAFARI_VIEWER_SCROLL_RELEASED_EVENT));
   };
 };

@@ -1,0 +1,27 @@
+@media (orientation: landscape) {
+  /* Give Safari a short root scroll range while Immich keeps owning timeline scrolling. */
+  html.ios-safari-overview-shell,
+  html.ios-safari-overview-shell body {
+    overscroll-behavior-y: none;
+    scrollbar-width: none;
+  }
+
+  html.ios-safari-overview-shell body {
+    /* Keep the scroll runway stable while Safari resizes its dynamic viewport. */
+    height: calc(100lvh + 128px);
+    overflow-y: scroll;
+  }
+
+  html.ios-safari-overview-shell [data-ios-safari-overview-shell] {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  html.ios-safari-overview-shell::-webkit-scrollbar,
+  html.ios-safari-overview-shell body::-webkit-scrollbar {
+    display: none;
+  }
+}
