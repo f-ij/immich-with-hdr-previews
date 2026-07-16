@@ -28,9 +28,17 @@ const setDocumentScrollRange = (scrollHeight: number, clientHeight: number) => {
   return scroller;
 };
 
-const dispatchTouch = (element: HTMLElement, type: string, touches: Array<{ clientX: number; clientY: number }>) => {
+const dispatchTouch = (
+  element: HTMLElement,
+  type: string,
+  touches: Array<{ clientX: number; clientY: number }>,
+  timeStamp?: number,
+) => {
   const event = new Event(type, { bubbles: true });
   Object.defineProperty(event, 'touches', { value: touches });
+  if (timeStamp !== undefined) {
+    Object.defineProperty(event, 'timeStamp', { value: timeStamp });
+  }
   element.dispatchEvent(event);
 };
 
@@ -119,6 +127,43 @@ describe(enableIphoneSafariOverviewShell.name, () => {
     dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 200 }]);
     dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 150 }]);
     expect(timeline.scrollTop).toBe(87);
+  });
+
+  it('continues a recent vertical gesture with bounded momentum', () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    let animationFrame: FrameRequestCallback | undefined;
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        animationFrame = callback;
+        return 1;
+      }),
+    );
+    vi.stubGlobal(
+      'cancelAnimationFrame',
+      vi.fn(() => {
+        animationFrame = undefined;
+      }),
+    );
+    const { timeline } = addTimeline();
+    const disable = enableIphoneSafariOverviewShell(timeline, iphoneSafari);
+
+    dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 200 }], 10);
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 150 }], 30);
+    dispatchTouch(timeline, 'touchend', [], 35);
+    expect(timeline.scrollTop).toBe(87);
+    expect(animationFrame).toBeDefined();
+
+    animationFrame?.(51);
+    expect(timeline.scrollTop).toBeGreaterThan(87);
+
+    dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 150 }], 52);
+    expect(animationFrame).toBeUndefined();
+    disable();
   });
 
   it('does not drive timeline scrolling from taps, horizontal gestures, or pinches', () => {
