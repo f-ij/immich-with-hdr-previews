@@ -23,6 +23,7 @@
   /* Safari lets page chrome follow vertical gestures begun in a nested horizontal scroller. */
   html.ios-safari-overview-shell #virtual-timeline {
     overflow-x: auto;
+    overflow-y: clip;
     scrollbar-width: none;
   }
 
