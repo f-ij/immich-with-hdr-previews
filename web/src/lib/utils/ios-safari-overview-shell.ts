@@ -74,6 +74,8 @@ const enableTimelineTouchDriver = (timeline: HTMLElement): (() => void) => {
   let previousTouch: TouchPosition | undefined;
   let previousTouchTime: number | undefined;
   let gestureAxis: 'pending' | 'horizontal' | 'vertical' = 'pending';
+  let scrollFrame: number | undefined;
+  let queuedScrollDelta = 0;
   let momentumFrame: number | undefined;
   let velocity = 0;
 
@@ -91,7 +93,34 @@ const enableTimelineTouchDriver = (timeline: HTMLElement): (() => void) => {
     velocity = 0;
   };
 
+  const applyQueuedScroll = () => {
+    scrollFrame = undefined;
+    timeline.scrollTop += queuedScrollDelta;
+    queuedScrollDelta = 0;
+  };
+
+  const flushQueuedScroll = () => {
+    if (scrollFrame !== undefined) {
+      cancelAnimationFrame(scrollFrame);
+    }
+    applyQueuedScroll();
+  };
+
+  const scrollTimeline = (delta: number) => {
+    if (delta === 0) {
+      return;
+    }
+
+    if (scrollFrame === undefined) {
+      timeline.scrollTop += delta;
+      scrollFrame = requestAnimationFrame(applyQueuedScroll);
+    } else {
+      queuedScrollDelta += delta;
+    }
+  };
+
   const resetGesture = () => {
+    flushQueuedScroll();
     clearTouch();
     stopMomentum();
   };
@@ -167,7 +196,7 @@ const enableTimelineTouchDriver = (timeline: HTMLElement): (() => void) => {
     previousTouch = touch;
     previousTouchTime = event.timeStamp;
     if (gestureAxis === 'vertical') {
-      timeline.scrollTop += deltaY;
+      scrollTimeline(deltaY);
       if (elapsed > 0) {
         const sampleVelocity = Math.max(-MOMENTUM_MAX_VELOCITY, Math.min(MOMENTUM_MAX_VELOCITY, deltaY / elapsed));
         velocity = velocity * sampleVelocity <= 0 ? sampleVelocity : velocity * 0.2 + sampleVelocity * 0.8;
@@ -179,6 +208,7 @@ const enableTimelineTouchDriver = (timeline: HTMLElement): (() => void) => {
     const sampleAge = previousTouchTime === undefined ? Infinity : event.timeStamp - previousTouchTime;
     const shouldStartMomentum = gestureAxis === 'vertical' && sampleAge >= 0 && sampleAge <= MOMENTUM_MAX_SAMPLE_AGE;
 
+    flushQueuedScroll();
     clearTouch();
     if (shouldStartMomentum) {
       startMomentum(event.timeStamp);

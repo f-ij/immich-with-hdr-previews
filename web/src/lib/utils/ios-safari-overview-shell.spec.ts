@@ -129,6 +129,34 @@ describe(enableIphoneSafariOverviewShell.name, () => {
     expect(timeline.scrollTop).toBe(87);
   });
 
+  it('coalesces additional touch movement until the next animation frame', () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    let animationFrame: FrameRequestCallback | undefined;
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        animationFrame = callback;
+        return 1;
+      }),
+    );
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    const { timeline } = addTimeline();
+    const disable = enableIphoneSafariOverviewShell(timeline, iphoneSafari);
+
+    dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 200 }], 10);
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 150 }], 20);
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 140 }], 25);
+    expect(timeline.scrollTop).toBe(87);
+
+    animationFrame?.(30);
+    expect(timeline.scrollTop).toBe(97);
+    disable();
+  });
+
   it('continues a recent vertical gesture in its most recent direction', () => {
     vi.stubGlobal('matchMedia', () => ({
       matches: true,
