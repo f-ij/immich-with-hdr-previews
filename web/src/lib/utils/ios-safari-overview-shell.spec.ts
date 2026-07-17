@@ -129,7 +129,7 @@ describe(enableIphoneSafariOverviewShell.name, () => {
     expect(timeline.scrollTop).toBe(87);
   });
 
-  it('continues a recent vertical gesture with bounded momentum', () => {
+  it('continues a recent vertical gesture in its most recent direction', () => {
     vi.stubGlobal('matchMedia', () => ({
       matches: true,
       addEventListener: vi.fn(),
@@ -154,14 +154,18 @@ describe(enableIphoneSafariOverviewShell.name, () => {
 
     dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 200 }], 10);
     dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 150 }], 30);
-    dispatchTouch(timeline, 'touchend', [], 35);
-    expect(timeline.scrollTop).toBe(87);
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 160 }], 50);
+    dispatchTouch(timeline, 'touchend', [], 55);
+    expect(timeline.scrollTop).toBe(77);
     expect(animationFrame).toBeDefined();
 
-    animationFrame?.(51);
-    expect(timeline.scrollTop).toBeGreaterThan(87);
+    animationFrame?.(66);
+    expect(timeline.scrollTop).toBeLessThan(77);
 
-    dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 150 }], 52);
+    const child = document.createElement('div');
+    child.addEventListener('touchstart', (event: Event) => event.stopPropagation());
+    timeline.append(child);
+    dispatchTouch(child, 'touchstart', [{ clientX: 100, clientY: 160 }], 67);
     expect(animationFrame).toBeUndefined();
     disable();
   });

@@ -170,7 +170,7 @@ const enableTimelineTouchDriver = (timeline: HTMLElement): (() => void) => {
       timeline.scrollTop += deltaY;
       if (elapsed > 0) {
         const sampleVelocity = Math.max(-MOMENTUM_MAX_VELOCITY, Math.min(MOMENTUM_MAX_VELOCITY, deltaY / elapsed));
-        velocity = velocity === 0 ? sampleVelocity : velocity * 0.2 + sampleVelocity * 0.8;
+        velocity = velocity * sampleVelocity <= 0 ? sampleVelocity : velocity * 0.2 + sampleVelocity * 0.8;
       }
     }
   };
@@ -187,14 +187,14 @@ const enableTimelineTouchDriver = (timeline: HTMLElement): (() => void) => {
     }
   };
 
-  timeline.addEventListener('touchstart', onTouchStart, { passive: true });
+  timeline.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
   timeline.addEventListener('touchmove', onTouchMove, { passive: true });
   timeline.addEventListener('touchend', onTouchEnd, { passive: true });
   timeline.addEventListener('touchcancel', resetGesture, { passive: true });
 
   return () => {
     resetGesture();
-    timeline.removeEventListener('touchstart', onTouchStart);
+    timeline.removeEventListener('touchstart', onTouchStart, true);
     timeline.removeEventListener('touchmove', onTouchMove);
     timeline.removeEventListener('touchend', onTouchEnd);
     timeline.removeEventListener('touchcancel', resetGesture);
