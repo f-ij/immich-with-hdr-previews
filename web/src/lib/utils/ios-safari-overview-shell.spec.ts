@@ -198,6 +198,41 @@ describe(enableIphoneSafariOverviewShell.name, () => {
     disable();
   });
 
+  it('stops timeline momentum when a touch starts on another page control', () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    let animationFrame: FrameRequestCallback | undefined;
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        animationFrame = callback;
+        return 1;
+      }),
+    );
+    vi.stubGlobal(
+      'cancelAnimationFrame',
+      vi.fn(() => {
+        animationFrame = undefined;
+      }),
+    );
+    const { root, timeline } = addTimeline();
+    const scrubber = document.createElement('div');
+    root.prepend(scrubber);
+    const disable = enableIphoneSafariOverviewShell(timeline, iphoneSafari);
+
+    dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 200 }], 10);
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 150 }], 30);
+    dispatchTouch(timeline, 'touchend', [], 35);
+    expect(animationFrame).toBeDefined();
+
+    dispatchTouch(scrubber, 'touchstart', [{ clientX: 300, clientY: 100 }], 40);
+    expect(animationFrame).toBeUndefined();
+    disable();
+  });
+
   it('does not drive timeline scrolling from taps, horizontal gestures, or pinches', () => {
     vi.stubGlobal('matchMedia', () => ({
       matches: true,
