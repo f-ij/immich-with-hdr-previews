@@ -161,7 +161,8 @@ const enableTimelineTouchDriver = (timeline: HTMLElement): (() => void) => {
       velocityDirection = sampleDirection;
       reversalDistance = 0;
       reversalVelocity = 0;
-      velocity = velocity === 0 ? sampleVelocity : velocity * 0.2 + sampleVelocity * 0.8;
+      // A short-lived slow sample can occur while Safari moves its bars during a flick.
+      velocity = velocity === 0 ? sampleVelocity : velocity * 0.8 + sampleVelocity * 0.2;
       return;
     }
 
