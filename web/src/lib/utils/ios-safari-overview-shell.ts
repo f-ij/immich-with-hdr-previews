@@ -106,6 +106,14 @@ const enableTimelineTouchDriver = (timeline: HTMLElement): (() => void) => {
     applyQueuedScroll();
   };
 
+  const cancelQueuedScroll = () => {
+    if (scrollFrame !== undefined) {
+      cancelAnimationFrame(scrollFrame);
+      scrollFrame = undefined;
+    }
+    queuedScrollDelta = 0;
+  };
+
   const scrollTimeline = (delta: number) => {
     if (delta === 0) {
       return;
@@ -120,8 +128,13 @@ const enableTimelineTouchDriver = (timeline: HTMLElement): (() => void) => {
   };
 
   const resetGesture = () => {
-    flushQueuedScroll();
+    cancelQueuedScroll();
     clearTouch();
+    stopMomentum();
+  };
+
+  const stopGridMotion = () => {
+    cancelQueuedScroll();
     stopMomentum();
   };
 
@@ -221,7 +234,7 @@ const enableTimelineTouchDriver = (timeline: HTMLElement): (() => void) => {
   timeline.addEventListener('touchmove', onTouchMove, { passive: true });
   timeline.addEventListener('touchend', onTouchEnd, { passive: true });
   timeline.addEventListener('touchcancel', resetGesture, { passive: true });
-  document.addEventListener('touchstart', stopMomentum, { capture: true, passive: true });
+  document.addEventListener('touchstart', stopGridMotion, { capture: true, passive: true });
 
   return () => {
     resetGesture();
@@ -229,7 +242,7 @@ const enableTimelineTouchDriver = (timeline: HTMLElement): (() => void) => {
     timeline.removeEventListener('touchmove', onTouchMove);
     timeline.removeEventListener('touchend', onTouchEnd);
     timeline.removeEventListener('touchcancel', resetGesture);
-    document.removeEventListener('touchstart', stopMomentum, true);
+    document.removeEventListener('touchstart', stopGridMotion, true);
   };
 };
 

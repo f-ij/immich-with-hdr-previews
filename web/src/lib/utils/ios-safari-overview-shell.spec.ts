@@ -157,6 +157,33 @@ describe(enableIphoneSafariOverviewShell.name, () => {
     disable();
   });
 
+  it('discards queued movement when an interrupted gesture is replaced', () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn(() => 1),
+    );
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    const { timeline } = addTimeline();
+    const disable = enableIphoneSafariOverviewShell(timeline, iphoneSafari);
+
+    dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 200 }], 10);
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 150 }], 20);
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 140 }], 25);
+    expect(timeline.scrollTop).toBe(87);
+
+    dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 140 }], 30);
+    expect(timeline.scrollTop).toBe(87);
+
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 160 }], 40);
+    expect(timeline.scrollTop).toBe(67);
+    disable();
+  });
+
   it('continues a recent vertical gesture in its most recent direction', () => {
     vi.stubGlobal('matchMedia', () => ({
       matches: true,
