@@ -20,18 +20,11 @@ type TouchPosition = {
 };
 
 type TouchEventLike = Event & {
-  touches: ArrayLike<{ clientX: number; clientY: number; screenX?: number; screenY?: number }>;
+  touches: ArrayLike<{ clientX: number; clientY: number }>;
 };
 
-const getSingleTouch = ({ touches }: TouchEventLike): TouchPosition | undefined => {
-  if (touches.length !== 1) {
-    return;
-  }
-
-  const touch = touches[0];
-  // Screen coordinates stay stable while Safari expands or collapses its browser bars.
-  return { x: touch.screenX ?? touch.clientX, y: touch.screenY ?? touch.clientY };
-};
+const getSingleTouch = ({ touches }: TouchEventLike): TouchPosition | undefined =>
+  touches.length === 1 ? { x: touches[0].clientX, y: touches[0].clientY } : undefined;
 
 const getPageRoot = (element: HTMLElement): HTMLElement | null => {
   while (element.parentElement && element.parentElement !== document.body) {

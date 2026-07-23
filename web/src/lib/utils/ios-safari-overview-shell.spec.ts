@@ -31,7 +31,7 @@ const setDocumentScrollRange = (scrollHeight: number, clientHeight: number) => {
 const dispatchTouch = (
   element: HTMLElement,
   type: string,
-  touches: Array<{ clientX: number; clientY: number; screenX?: number; screenY?: number }>,
+  touches: Array<{ clientX: number; clientY: number }>,
   timeStamp?: number,
 ) => {
   const event = new Event(type, { bubbles: true });
@@ -222,34 +222,6 @@ describe(enableIphoneSafariOverviewShell.name, () => {
     timeline.append(child);
     dispatchTouch(child, 'touchstart', [{ clientX: 100, clientY: 160 }], 67);
     expect(animationFrame).toBeUndefined();
-    disable();
-  });
-
-  it('preserves grid movement while Safari moves its viewport', () => {
-    vi.stubGlobal('matchMedia', () => ({
-      matches: true,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }));
-    let animationFrame: FrameRequestCallback | undefined;
-    vi.stubGlobal(
-      'requestAnimationFrame',
-      vi.fn((callback: FrameRequestCallback) => {
-        animationFrame = callback;
-        return 1;
-      }),
-    );
-    vi.stubGlobal('cancelAnimationFrame', vi.fn());
-    const { timeline } = addTimeline();
-    const disable = enableIphoneSafariOverviewShell(timeline, iphoneSafari);
-
-    dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 200, screenX: 300, screenY: 300 }], 10);
-    dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 180, screenX: 300, screenY: 250 }], 30);
-    dispatchTouch(timeline, 'touchend', [], 35);
-    expect(timeline.scrollTop).toBe(87);
-
-    animationFrame?.(51);
-    expect(timeline.scrollTop).toBe(127);
     disable();
   });
 
