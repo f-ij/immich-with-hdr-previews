@@ -78,11 +78,17 @@ const enableTimelineTouchDriver = (timeline: HTMLElement): (() => void) => {
   let queuedScrollDelta = 0;
   let momentumFrame: number | undefined;
   let velocity = 0;
+  let velocityDirection: -1 | 0 | 1 = 0;
+  let reversalDistance = 0;
+  let reversalVelocity = 0;
 
   const clearTouch = () => {
     previousTouch = undefined;
     previousTouchTime = undefined;
     gestureAxis = 'pending';
+    velocityDirection = 0;
+    reversalDistance = 0;
+    reversalVelocity = 0;
   };
 
   const stopMomentum = () => {
@@ -136,6 +142,43 @@ const enableTimelineTouchDriver = (timeline: HTMLElement): (() => void) => {
   const stopGridMotion = () => {
     cancelQueuedScroll();
     stopMomentum();
+  };
+
+  const updateVelocity = (delta: number, elapsed: number) => {
+    if (elapsed <= 0) {
+      return;
+    }
+
+    const sampleVelocity = Math.max(-MOMENTUM_MAX_VELOCITY, Math.min(MOMENTUM_MAX_VELOCITY, delta / elapsed));
+    const sampleDirection = sampleVelocity < 0 ? -1 : sampleVelocity > 0 ? 1 : 0;
+
+    if (sampleDirection === 0) {
+      velocity = 0;
+      return;
+    }
+
+    if (velocityDirection === 0 || sampleDirection === velocityDirection) {
+      velocityDirection = sampleDirection;
+      reversalDistance = 0;
+      reversalVelocity = 0;
+      velocity = velocity === 0 ? sampleVelocity : velocity * 0.2 + sampleVelocity * 0.8;
+      return;
+    }
+
+    // Taper release jitter, but switch once movement in the new direction is deliberate.
+    if (reversalDistance === 0) {
+      reversalVelocity = velocity;
+    }
+    reversalDistance += Math.abs(delta);
+
+    if (reversalDistance >= AXIS_LOCK_THRESHOLD) {
+      velocityDirection = sampleDirection;
+      reversalDistance = 0;
+      reversalVelocity = 0;
+      velocity = sampleVelocity;
+    } else {
+      velocity = reversalVelocity * (1 - reversalDistance / AXIS_LOCK_THRESHOLD);
+    }
   };
 
   // The grid cannot use native overflow momentum while the root owns Safari's pan.
@@ -210,10 +253,7 @@ const enableTimelineTouchDriver = (timeline: HTMLElement): (() => void) => {
     previousTouchTime = event.timeStamp;
     if (gestureAxis === 'vertical') {
       scrollTimeline(deltaY);
-      if (elapsed > 0) {
-        const sampleVelocity = Math.max(-MOMENTUM_MAX_VELOCITY, Math.min(MOMENTUM_MAX_VELOCITY, deltaY / elapsed));
-        velocity = velocity * sampleVelocity <= 0 ? sampleVelocity : velocity * 0.2 + sampleVelocity * 0.8;
-      }
+      updateVelocity(deltaY, elapsed);
     }
   };
 

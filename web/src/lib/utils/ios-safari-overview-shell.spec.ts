@@ -225,6 +225,41 @@ describe(enableIphoneSafariOverviewShell.name, () => {
     disable();
   });
 
+  it('does not reverse momentum from a one-pixel release jitter', () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    let animationFrame: FrameRequestCallback | undefined;
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        animationFrame = callback;
+        return 1;
+      }),
+    );
+    vi.stubGlobal(
+      'cancelAnimationFrame',
+      vi.fn(() => {
+        animationFrame = undefined;
+      }),
+    );
+    const { timeline } = addTimeline();
+    timeline.scrollTop = 200;
+    const disable = enableIphoneSafariOverviewShell(timeline, iphoneSafari);
+
+    dispatchTouch(timeline, 'touchstart', [{ clientX: 100, clientY: 100 }], 10);
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 150 }], 30);
+    dispatchTouch(timeline, 'touchmove', [{ clientX: 100, clientY: 149 }], 50);
+    dispatchTouch(timeline, 'touchend', [], 55);
+    expect(timeline.scrollTop).toBe(151);
+
+    animationFrame?.(71);
+    expect(timeline.scrollTop).toBeLessThan(151);
+    disable();
+  });
+
   it('stops timeline momentum when a touch starts on another page control', () => {
     vi.stubGlobal('matchMedia', () => ({
       matches: true,
