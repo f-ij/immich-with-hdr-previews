@@ -402,6 +402,17 @@
       isHover = false;
     }
   };
+  const preventNativeTouchScroll = (event: Event) => event.preventDefault();
+  onMount(() => {
+    const element = scrollBar;
+    // Keep scrubber drags out of Safari's root scroll runway without blocking grid gestures.
+    element?.addEventListener('touchstart', preventNativeTouchScroll, { passive: false });
+    element?.addEventListener('touchmove', preventNativeTouchScroll, { passive: false });
+    return () => {
+      element?.removeEventListener('touchstart', preventNativeTouchScroll);
+      element?.removeEventListener('touchmove', preventNativeTouchScroll);
+    };
+  });
   onMount(() => {
     document.addEventListener('touchmove', onTouchMove, { capture: true, passive: true });
     return () => {
