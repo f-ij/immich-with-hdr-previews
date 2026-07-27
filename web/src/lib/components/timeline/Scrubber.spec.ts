@@ -2,10 +2,10 @@ import { render } from '@testing-library/svelte';
 import Scrubber from '$lib/components/timeline/Scrubber.svelte';
 import type { TimelineManager } from '$lib/managers/timeline-manager/timeline-manager.svelte';
 
-const dispatchTouch = (element: HTMLElement, type: string, clientY: number) => {
+const dispatchTouch = (element: HTMLElement, type: string, clientY?: number) => {
   const event = new Event(type, { bubbles: true, cancelable: true });
   Object.defineProperty(event, 'touches', {
-    value: [{ clientX: 10, clientY }],
+    value: clientY === undefined ? [] : [{ clientX: 10, clientY }],
   });
   element.dispatchEvent(event);
   return event;
@@ -36,5 +36,33 @@ describe('Scrubber', () => {
     expect(touchStart.defaultPrevented).toBe(true);
     expect(touchMove.defaultPrevented).toBe(true);
     expect(onScrub).toHaveBeenCalled();
+  });
+
+  it('ends a scrub when Safari cancels the touch sequence', () => {
+    const timelineManager = {
+      scrolling: false,
+      scrubberTimelineHeight: 1000,
+      scrubberMonths: [{ height: 1000, assetCount: 1, year: 2026, month: 1, title: 'January 2026' }],
+    } as unknown as TimelineManager;
+    const onScrub = vi.fn();
+    const startScrub = vi.fn();
+    const stopScrub = vi.fn();
+    const { container } = render(Scrubber, { timelineManager, height: 400, onScrub, startScrub, stopScrub });
+    const scrubber = container.querySelector<HTMLElement>('[data-id="scrubber"]')!;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [scrubber]),
+    });
+
+    dispatchTouch(scrubber, 'touchstart', 100);
+    dispatchTouch(scrubber, 'touchmove', 120);
+    const scrubCallsBeforeCancel = onScrub.mock.calls.length;
+    dispatchTouch(scrubber, 'touchcancel');
+
+    expect(startScrub).toHaveBeenCalledOnce();
+    expect(stopScrub).toHaveBeenCalledOnce();
+
+    dispatchTouch(scrubber, 'touchmove', 140);
+    expect(onScrub).toHaveBeenCalledTimes(scrubCallsBeforeCancel);
   });
 });

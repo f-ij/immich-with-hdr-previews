@@ -423,9 +423,11 @@
   onMount(() => {
     document.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
     document.addEventListener('touchend', onTouchEnd, { capture: true, passive: true });
+    document.addEventListener('touchcancel', onTouchEnd, { capture: true, passive: true });
     return () => {
       document.removeEventListener('touchstart', onTouchStart, true);
       document.removeEventListener('touchend', onTouchEnd, true);
+      document.removeEventListener('touchcancel', onTouchEnd, true);
     };
   });
 
