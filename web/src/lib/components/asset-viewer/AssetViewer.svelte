@@ -15,6 +15,7 @@
   import { authManager } from '$lib/managers/auth-manager.svelte';
   import { editManager, EditToolType } from '$lib/managers/edit/edit-manager.svelte';
   import { eventManager } from '$lib/managers/event-manager.svelte';
+  import type { TimelineAsset } from '$lib/managers/timeline-manager/types';
   import { getAssetActions } from '$lib/services/asset.service';
   import { faceManager } from '$lib/stores/face.svelte';
   import { ocrManager } from '$lib/stores/ocr.svelte';
@@ -24,6 +25,7 @@
   import type { OnUndoDelete } from '$lib/utils/actions';
   import { navigateToAsset } from '$lib/utils/asset-utils';
   import { handleError } from '$lib/utils/handle-error';
+  import { navigate } from '$lib/utils/navigation';
   import { InvocationTracker } from '$lib/utils/invocationTracker';
   import { isIphoneSafariTab } from '$lib/utils/ios-safari-scroll';
   import { enableIphoneSafariViewerScroll } from '$lib/utils/ios-safari-viewer-scroll';
@@ -154,6 +156,15 @@
     }
   };
 
+  const onAssetsUndoArchive = async (assets: TimelineAsset[]) => {
+    if (assets.length === 0) {
+      return;
+    }
+    const restoredAsset = assets[0];
+    await assetViewerManager.setAssetId(restoredAsset.id);
+    await navigate({ targetRoute: 'current', assetId: restoredAsset.id });
+  };
+
   onMount(() => {
     syncAssetViewerOpenClass(true);
     const disableIphoneSafariViewerScroll = enableIphoneSafariViewerScroll(assetViewerHtmlElement);
@@ -168,10 +179,12 @@
     });
 
     const slideshowNavigationUnsubscribe = slideshowNavigation.subscribe((value) => {
-      if (value === SlideshowNavigation.Shuffle) {
-        slideshowHistory.reset();
-        slideshowHistory.queue(toTimelineAsset(asset));
+      if (value !== SlideshowNavigation.Shuffle) {
+        return;
       }
+
+      slideshowHistory.reset();
+      slideshowHistory.queue(toTimelineAsset(asset));
     });
 
     return () => {
@@ -473,16 +486,14 @@
 
     if (event.detail.direction === 'left') {
       navigateAsset('next');
-    }
-
-    if (event.detail.direction === 'right') {
+    } else if (event.detail.direction === 'right') {
       navigateAsset('previous');
     }
   };
 </script>
 
 <CommandPaletteDefaultProvider name={$t('assets')} actions={[Tag, TagPeople]} />
-<OnEvents {onAssetUpdate} />
+<OnEvents {onAssetUpdate} {onAssetsUndoArchive} />
 
 <svelte:document
   bind:fullscreenElement
@@ -646,7 +657,7 @@
     </div>
   {/if}
 
-  {#if stack && withStacked && !assetViewerManager.isShowEditor}
+  {#if stack && withStacked && !assetViewerManager.isShowEditor && $slideshowState === SlideshowState.None}
     {@const stackedAssets = stack.assets}
     <div id="stack-slideshow" class="absolute bottom-0 col-span-4 col-start-1 w-fit max-w-full">
       <div class="no-wrap horizontal-scrollbar relative flex flex-row overflow-x-auto overflow-y-hidden">

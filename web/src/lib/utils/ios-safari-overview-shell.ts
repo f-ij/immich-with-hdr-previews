@@ -23,7 +23,7 @@ const enableDocumentScrollRunway = (): (() => void) => {
 
   // Reaching the top lets Safari reveal its bars without a dead drag on the next gesture.
   const rearmRunway = () => {
-    if (landscape?.matches === false) {
+    if (landscape && !landscape.matches) {
       return;
     }
 

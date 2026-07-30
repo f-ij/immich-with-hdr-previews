@@ -129,6 +129,7 @@
 
   // TODO move to action + command palette
   const onCopyShortcut = (event: KeyboardEvent) => {
+    // eslint-disable-next-line unicorn/no-unnecessary-global-this
     if (globalThis.getSelection()?.type === 'Range') {
       return;
     }
@@ -153,7 +154,7 @@
     if (!url || !castManager.isCasting) {
       return;
     }
-    const fullUrl = new URL(url, globalThis.location.href);
+    const fullUrl = new URL(url, location.href);
 
     try {
       await castManager.loadMedia(fullUrl.href);

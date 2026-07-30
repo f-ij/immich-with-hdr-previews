@@ -46,9 +46,6 @@ const probe = (input: string, options: string[]): Promise<FfprobeData> =>
     ffmpeg.ffprobe(input, options, (error, data) => (error ? reject(error) : resolve(data))),
   );
 
-sharp.concurrency(0);
-sharp.cache({ files: 0 });
-
 const pascalCase = (str: string) => _.upperFirst(_.camelCase(str.toLowerCase()));
 
 type ProgressEvent = {
@@ -69,6 +66,8 @@ export type ExtractResult = {
 export class MediaRepository {
   constructor(private logger: LoggingRepository) {
     this.logger.setContext(MediaRepository.name);
+    sharp.concurrency(0);
+    sharp.cache({ files: 0 });
   }
 
   /**
@@ -85,6 +84,7 @@ export class MediaRepository {
     ]) {
       try {
         const buffer = await exiftool.extractBinaryTagToBuffer(tag, input);
+        this.logger.debug(`Successfully extracted ${tag} buffer from image`);
         return { buffer, format };
       } catch (error: any) {
         this.logger.debug(`Could not extract ${tag} buffer from image: ${error}`);
@@ -391,7 +391,7 @@ export class MediaRepository {
       if (!line) {
         return;
       }
-      const [ptsStr, durationStr, flags] = line.split(',');
+      const [ptsStr, durationStr, flags] = line.split(',', 3);
       const pts = Number.parseInt(ptsStr);
       const duration = Number.parseInt(durationStr);
       if (Number.isNaN(pts) || Number.isNaN(duration) || !flags) {
@@ -488,7 +488,7 @@ export class MediaRepository {
   }
 
   async getImageMetadata(input: string | Buffer): Promise<ImageDimensions & { isTransparent: boolean }> {
-    const { width = 0, height = 0, hasAlpha = false } = await sharp(input).metadata();
+    const { width = 0, height = 0, hasAlpha = false } = await sharp(input, { unlimited: true }).metadata();
     return { width, height, isTransparent: hasAlpha };
   }
 
@@ -528,6 +528,7 @@ export class MediaRepository {
   }
 
   private parseFloat(value: string | number | undefined): number {
+    // eslint-disable-next-line unicorn/prefer-number-coercion
     return Number.parseFloat(value as string) || 0;
   }
 

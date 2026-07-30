@@ -7,7 +7,6 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:immich_mobile/constants/enums.dart';
 import 'package:immich_mobile/domain/models/asset/base_asset.model.dart';
-import 'package:immich_mobile/domain/models/settings_key.dart';
 import 'package:immich_mobile/extensions/build_context_extensions.dart';
 import 'package:immich_mobile/generated/translations.g.dart';
 import 'package:immich_mobile/presentation/widgets/action_buttons/base_action_button.widget.dart';
@@ -94,13 +93,13 @@ class ShareActionButton extends ConsumerWidget {
     return switch (source) {
       ActionSource.timeline => ref.read(multiSelectProvider).selectedAssets,
       ActionSource.viewer => switch (ref.read(assetViewerProvider).currentAsset) {
-        BaseAsset asset => {asset},
+        final BaseAsset asset => {asset},
         null => const {},
       },
     };
   }
 
-  void _onTap(BuildContext context, WidgetRef ref) async {
+  Future<void> _onTap(BuildContext context, WidgetRef ref) async {
     if (!context.mounted) {
       return;
     }
@@ -109,7 +108,7 @@ class ShareActionButton extends ConsumerWidget {
     await _share(context, ref, fileType);
   }
 
-  void _onLongPress(BuildContext context, WidgetRef ref) async {
+  Future<void> _onLongPress(BuildContext context, WidgetRef ref) async {
     if (!context.mounted) {
       return;
     }
@@ -126,12 +125,6 @@ class ShareActionButton extends ConsumerWidget {
     );
 
     if (fileType == null || !context.mounted) {
-      return;
-    }
-
-    await ref.read(settingsProvider).write(SettingsKey.shareFileType, fileType);
-
-    if (!context.mounted) {
       return;
     }
 

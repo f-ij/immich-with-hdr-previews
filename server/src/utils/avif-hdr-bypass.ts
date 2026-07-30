@@ -260,7 +260,7 @@ function parseTileGrid(streamGroups: FfprobeStreamGroup[] | undefined): AvifTile
 }
 
 function isNonNegativeInteger(value: number | undefined, allowZero: boolean = true): value is number {
-  return value !== undefined && Number.isInteger(value) && value >= (allowZero ? 0 : 1);
+  return value !== undefined && Number.isSafeInteger(value) && value >= (allowZero ? 0 : 1);
 }
 
 async function probeAvifContentLightLevel(sourcePath: string): Promise<string | undefined> {

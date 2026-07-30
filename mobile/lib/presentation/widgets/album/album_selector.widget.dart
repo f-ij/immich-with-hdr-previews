@@ -745,10 +745,15 @@ class AddToAlbumHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     Future<void> onCreateAlbum() async {
+      final albumName = await showDialog<String?>(context: context, builder: (context) => const NewAlbumNameModal());
+      if (albumName == null) {
+        return;
+      }
+
       final selectedAssets = ref.read(multiSelectProvider).selectedAssets;
       final newAlbum = await ref
           .read(remoteAlbumProvider.notifier)
-          .createAlbumWithAssets(title: "Untitled Album", assets: selectedAssets);
+          .createAlbumWithAssets(title: albumName, assets: selectedAssets);
 
       if (newAlbum == null) {
         ImmichToast.show(context: context, toastType: ToastType.error, msg: 'errors.failed_to_create_album'.tr());
@@ -769,7 +774,7 @@ class AddToAlbumHeader extends ConsumerWidget {
             TextButton.icon(
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // remove internal padding
-                minimumSize: const Size(0, 0), // allow shrinking
+                minimumSize: Size.zero, // allow shrinking
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap, // remove extra height
               ),
               onPressed: onCreateAlbum,
@@ -792,7 +797,7 @@ class CreateAlbumButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     Future<void> onCreateAlbum() async {
-      var albumName = await showDialog<String?>(context: context, builder: (context) => const NewAlbumNameModal());
+      final albumName = await showDialog<String?>(context: context, builder: (context) => const NewAlbumNameModal());
       if (albumName == null) {
         return;
       }
@@ -834,7 +839,7 @@ class CreateAlbumButton extends ConsumerWidget {
             TextButton.icon(
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                minimumSize: const Size(0, 0),
+                minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               onPressed: onCreateAlbum,

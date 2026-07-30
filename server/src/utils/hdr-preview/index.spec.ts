@@ -6,7 +6,10 @@ describe('HDR preview source routing', () => {
     expect(getHdrPreviewSourceMimeType(mimeType)).toBe(mimeType);
   });
 
-  it.each(['image/jpeg', 'image/png', false])('does not route %s through the HDR preview pipeline', (mimeType) => {
-    expect(getHdrPreviewSourceMimeType(mimeType)).toBeUndefined();
-  });
+  it.each(['image/jpeg', 'image/png', false] as const)(
+    'does not route %s through the HDR preview pipeline',
+    (mimeType) => {
+      expect(getHdrPreviewSourceMimeType(mimeType)).toBeUndefined();
+    },
+  );
 });

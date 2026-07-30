@@ -11,10 +11,12 @@ export const singleClick: Action<HTMLElement, (() => void) | undefined> = (node,
   const activePointers = new Set<number>();
 
   const clearPendingClick = () => {
-    if (pendingClick !== undefined) {
-      clearTimeout(pendingClick);
-      pendingClick = undefined;
+    if (pendingClick === undefined) {
+      return;
     }
+
+    clearTimeout(pendingClick);
+    pendingClick = undefined;
   };
 
   const exceedsDragThreshold = (event: PointerEvent) =>

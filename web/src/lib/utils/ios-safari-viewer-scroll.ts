@@ -32,11 +32,11 @@ export const enableIphoneSafariViewerScroll = (
   const { scrollX, scrollY } = globalThis;
   document.documentElement.classList.add(IPHONE_SAFARI_VIEWER_SCROLL_CLASS);
   viewerRoot.setAttribute(VIEWER_SCROLL_ROOT_ATTRIBUTE, '');
-  globalThis.scrollTo(0, 0);
+  scrollTo(0, 0);
 
   return () => {
     document.documentElement.classList.remove(IPHONE_SAFARI_VIEWER_SCROLL_CLASS);
     viewerRoot.removeAttribute(VIEWER_SCROLL_ROOT_ATTRIBUTE);
-    globalThis.scrollTo(scrollX, scrollY);
+    scrollTo(scrollX, scrollY);
   };
 };
