@@ -45,6 +45,58 @@ describe(enableIphoneSafariViewerScroll.name, () => {
     expect(scrollTo).toHaveBeenLastCalledWith(17, 29);
   });
 
+  it('centers and rearms the portrait scroll runway', () => {
+    const { viewer } = addViewer();
+    const scroller = document.scrollingElement ?? document.documentElement;
+    const portrait = {
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    };
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => portrait),
+    );
+    const scrollTo = vi.spyOn(globalThis, 'scrollTo').mockImplementation((_, top) => {
+      scroller.scrollTop = Number(top);
+    });
+
+    const cleanup = enableIphoneSafariViewerScroll(viewer, iphoneSafari);
+
+    expect(scrollTo).toHaveBeenCalledWith(0, 128);
+    expect(scroller.scrollTop).toBe(128);
+
+    scroller.scrollTop = 256;
+    scroller.dispatchEvent(new Event('scrollend'));
+    expect(scroller.scrollTop).toBe(128);
+
+    scroller.scrollTop = 0;
+    document.dispatchEvent(new Event('scrollend'));
+    expect(scroller.scrollTop).toBe(128);
+
+    cleanup();
+  });
+
+  it('leaves the known-good landscape scroll behavior unchanged', () => {
+    const { viewer } = addViewer();
+    const scroller = document.scrollingElement ?? document.documentElement;
+    vi.stubGlobal('matchMedia', () => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    const scrollTo = vi.spyOn(globalThis, 'scrollTo').mockImplementation(() => {});
+
+    const cleanup = enableIphoneSafariViewerScroll(viewer, iphoneSafari);
+
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
+    scroller.scrollTop = 100;
+    scroller.dispatchEvent(new Event('scrollend'));
+    expect(scroller.scrollTop).toBe(100);
+
+    cleanup();
+  });
+
   it('does nothing for other browsers', () => {
     const { root, viewer } = addViewer();
     const scrollTo = vi.spyOn(globalThis, 'scrollTo').mockImplementation(() => {});

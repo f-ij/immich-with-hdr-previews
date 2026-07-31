@@ -10,6 +10,13 @@ html.ios-safari-viewer-scroll body {
   overflow-y: scroll;
 }
 
+@media (orientation: portrait) {
+  html.ios-safari-viewer-scroll body {
+    /* Keep scroll room on both sides so either gesture direction can drive Safari's browser bars repeatedly. */
+    height: calc(100lvh + 256px);
+  }
+}
+
 html.ios-safari-viewer-scroll [data-ios-safari-viewer-scroll-root] {
   position: fixed;
   inset: 0;
