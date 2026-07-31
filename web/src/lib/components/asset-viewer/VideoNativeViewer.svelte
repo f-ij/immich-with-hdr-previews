@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { singleClick } from '$lib/actions/single-click';
   import FaceEditor from '$lib/components/asset-viewer/face-editor/FaceEditor.svelte';
   import VideoRemoteViewer from '$lib/components/asset-viewer/VideoRemoteViewer.svelte';
   import { assetViewerFadeDuration } from '$lib/constants';
@@ -59,7 +58,7 @@
     onVideoEnded?: () => void;
     onVideoStarted?: () => void;
     onClose?: () => void;
-    onClick?: () => void;
+    controlsVisible?: boolean;
   }
 
   let {
@@ -74,7 +73,7 @@
     onVideoEnded = () => {},
     onVideoStarted = () => {},
     onClose = () => {},
-    onClick,
+    controlsVisible = $bindable(true),
   }: Props = $props();
 
   let videoPlayer: HTMLVideoElement | undefined = $state();
@@ -93,6 +92,8 @@
   const aspectRatio = $derived(asset.width && asset.height ? `${asset.width} / ${asset.height}` : undefined);
   let showVideo = $state(false);
   let hasFocused = $state(false);
+  let isVideoPaused = $state(true);
+  let isUserInactive = $state(true);
   let activeSession: { assetId: string; id: string } | undefined;
   let rebuildCount = 0;
 
@@ -316,6 +317,35 @@
     }
   };
 
+  const syncControlsVisibility = () => {
+    controlsVisible = isVideoPaused || !isUserInactive;
+  };
+
+  const handleUserInactiveChange = (event: Event) => {
+    isUserInactive = (event as CustomEvent<boolean>).detail;
+    syncControlsVisibility();
+  };
+
+  const handlePlaying = (video: HTMLVideoElement) => {
+    isVideoPaused = false;
+    syncControlsVisibility();
+
+    if (!hasFocused) {
+      video.focus();
+      hasFocused = true;
+    }
+  };
+
+  const handlePause = () => {
+    isVideoPaused = true;
+    syncControlsVisibility();
+  };
+
+  const keepAutohideControlledByViewer = (node: HTMLElement) => {
+    node.setAttribute('noautohide', '');
+    return { destroy: () => node.removeAttribute('noautohide') };
+  };
+
   let containerWidth = $state(0);
   let containerHeight = $state(0);
 
@@ -373,6 +403,7 @@
         dir="ltr"
         lang={$lang}
         nohotkeys
+        onuserinactivechange={handleUserInactiveChange}
         class="dark h-full max-w-full"
         style:aspect-ratio={aspectRatio}
         defaultduration={asset.duration! / 1000}
@@ -386,20 +417,13 @@
             disablePictureInPicture
             playsinline
             {...useSwipe(onSwipe)}
-            use:singleClick={onClick}
             data-testid="video-viewer"
             class="h-full object-contain"
             oncanplay={(e: Event) => handleCanPlay(e.currentTarget as HTMLVideoElement)}
             onended={onVideoEnded}
             onseeking={onSeeking}
-            onplaying={(e: Event) => {
-              if (hasFocused) {
-                return;
-              }
-
-              (e.currentTarget as HTMLElement).focus();
-              hasFocused = true;
-            }}
+            onplaying={(e: Event) => handlePlaying(e.currentTarget as HTMLVideoElement)}
+            onpause={handlePause}
             onclose={onClose}
             poster={getAssetMediaUrl({ id: asset.id, size: AssetMediaSize.Preview, cacheKey })}
           ></hls-video>
@@ -413,20 +437,13 @@
             disablePictureInPicture
             playsinline
             {...useSwipe(onSwipe)}
-            use:singleClick={onClick}
             data-testid="video-viewer"
             class="h-full object-contain"
             oncanplay={(e) => handleCanPlay(e.currentTarget)}
             onended={onVideoEnded}
             onseeking={onSeeking}
-            onplaying={(e) => {
-              if (hasFocused) {
-                return;
-              }
-
-              e.currentTarget.focus();
-              hasFocused = true;
-            }}
+            onplaying={(e) => handlePlaying(e.currentTarget)}
+            onpause={handlePause}
             onclose={onClose}
             poster={getAssetMediaUrl({ id: asset.id, size: AssetMediaSize.Preview, cacheKey })}
           ></video>
@@ -456,7 +473,16 @@
           </media-settings-menu>
         {/if}
 
-        <div class="flex h-32 w-full flex-col justify-end bg-linear-to-b to-black/80 px-4">
+        <div
+          use:keepAutohideControlledByViewer
+          data-testid="video-controls"
+          class={[
+            'flex h-32 w-full flex-col justify-end bg-linear-to-b to-black/80 px-4 transition-[transform,opacity] duration-200',
+            { 'translate-y-full opacity-0 pointer-events-none': !controlsVisible },
+          ]}
+          aria-hidden={!controlsVisible}
+          inert={!controlsVisible}
+        >
           <media-control-bar part="bottom" class="flex h-10 w-full gap-2">
             <media-play-button class="shrink-0 rounded-full p-2 outline-none">
               <Icon slot="play" icon={mdiPlay} />
@@ -507,6 +533,8 @@
   media-controller {
     --media-control-background: none;
     --media-control-hover-background: var(--immich-ui-light-100);
+    --media-control-transition-in: opacity 0.2s;
+    --media-control-transition-out: opacity 0.2s;
     --media-focus-box-shadow: 0 0 0 2px var(--immich-ui-dark);
     --media-font-family: var(--font-sans);
     --media-font-size: var(--text-base);

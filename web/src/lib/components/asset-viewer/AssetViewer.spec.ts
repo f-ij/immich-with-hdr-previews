@@ -87,43 +87,60 @@ describe('AssetViewer', () => {
       cursor: { current: asset },
       showNavigation: false,
     });
-    const navbar = getByTestId('asset-viewer-navbar');
+    const navbarActions = getByTestId('asset-viewer-navbar-actions');
     const photoViewer = getByTestId('photo-viewer');
 
-    expect(navbar).not.toHaveClass('-translate-y-full');
+    expect(navbarActions).not.toHaveClass('-translate-y-full');
 
     await fireEvent.click(photoViewer);
     await vi.runAllTimersAsync();
 
-    expect(navbar).toHaveClass('-translate-y-full', 'opacity-0', 'pointer-events-none');
+    expect(navbarActions).toHaveClass('-translate-y-full', 'opacity-0', 'pointer-events-none');
+    expect(getByTestId('asset-viewer-close-action')).toBeVisible();
 
     await fireEvent.click(photoViewer);
     await vi.runAllTimersAsync();
 
-    expect(navbar).not.toHaveClass('-translate-y-full');
+    expect(navbarActions).not.toHaveClass('-translate-y-full');
   });
 
-  it('toggles the top bar when the video surface is clicked', async () => {
-    vi.useFakeTimers();
+  it('keeps the video and viewer controls synchronized while leaving close visible', async () => {
     const asset = assetFactory.build({ type: AssetTypeEnum.Video });
     const { getByTestId } = renderWithTooltips(AssetViewer, {
       cursor: { current: asset },
       showNavigation: false,
     });
-    const navbar = getByTestId('asset-viewer-navbar');
+    const navbarActions = getByTestId('asset-viewer-navbar-actions');
     const videoViewer = getByTestId('video-viewer');
+    const videoControls = getByTestId('video-controls');
+    const mediaController = videoViewer.closest('media-controller')!;
 
-    expect(navbar).not.toHaveClass('-translate-y-full');
+    expect(navbarActions).not.toHaveClass('-translate-y-full');
+    expect(videoControls).not.toHaveClass('translate-y-full');
 
-    await fireEvent.click(videoViewer);
-    await vi.runAllTimersAsync();
+    mediaController.setAttribute('userinactive', '');
+    await fireEvent.playing(videoViewer);
 
-    expect(navbar).toHaveClass('-translate-y-full', 'opacity-0', 'pointer-events-none');
+    expect(navbarActions).toHaveClass('-translate-y-full', 'opacity-0', 'pointer-events-none');
+    expect(videoControls).toHaveClass('translate-y-full', 'opacity-0', 'pointer-events-none');
+    expect(getByTestId('asset-viewer-close-action')).toBeVisible();
 
-    await fireEvent.click(videoViewer);
-    await vi.runAllTimersAsync();
+    await fireEvent.pointerDown(videoViewer, { pointerType: 'touch' });
+    await fireEvent.pointerUp(videoViewer, { pointerType: 'touch' });
 
-    expect(navbar).not.toHaveClass('-translate-y-full');
+    expect(navbarActions).not.toHaveClass('-translate-y-full');
+    expect(videoControls).not.toHaveClass('translate-y-full');
+
+    await fireEvent.pointerDown(videoViewer, { pointerType: 'touch' });
+    await fireEvent.pointerUp(videoViewer, { pointerType: 'touch' });
+
+    expect(navbarActions).toHaveClass('-translate-y-full');
+    expect(videoControls).toHaveClass('translate-y-full');
+
+    await fireEvent.pause(videoViewer);
+
+    expect(navbarActions).not.toHaveClass('-translate-y-full');
+    expect(videoControls).not.toHaveClass('translate-y-full');
   });
 
   it.skip('updates the top bar favorite action after pressing favorite', async () => {

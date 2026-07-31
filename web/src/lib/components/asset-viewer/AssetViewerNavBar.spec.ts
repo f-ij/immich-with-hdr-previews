@@ -23,7 +23,7 @@ describe('AssetViewerNavBar component', () => {
     onAction: () => {},
     onPlaySlideshow: () => {},
     onClose: () => {},
-    playOriginalVideo: false,
+    isPlayingOriginalVideo: false,
     setPlayOriginalVideo: () => Promise.resolve(),
   };
 
@@ -51,6 +51,27 @@ describe('AssetViewerNavBar component', () => {
     const asset = assetFactory.build({ isTrashed: false });
     const { getByLabelText } = renderWithTooltips(AssetViewerNavBar, { asset, ...additionalProps });
     expect(getByLabelText('go_back')).toBeInTheDocument();
+  });
+
+  it('keeps only the close action visible when viewer controls are hidden', () => {
+    const preferences = preferencesFactory.build({ cast: { gCastEnabled: false } });
+    authManager.setPreferences(preferences);
+
+    const asset = assetFactory.build({ isTrashed: false });
+    const { getByLabelText, getByTestId } = renderWithTooltips(AssetViewerNavBar, {
+      asset,
+      ...additionalProps,
+      controlsVisible: false,
+    });
+
+    expect(getByLabelText('go_back')).toBeVisible();
+    expect(getByTestId('asset-viewer-navbar-actions')).toHaveClass(
+      '-translate-y-full',
+      'opacity-0',
+      'pointer-events-none',
+    );
+    expect(getByTestId('asset-viewer-navbar-actions')).toHaveAttribute('aria-hidden', 'true');
+    expect(getByTestId('asset-viewer-navbar-backdrop')).toHaveClass('opacity-0');
   });
 
   describe('if the current user owns the asset', () => {

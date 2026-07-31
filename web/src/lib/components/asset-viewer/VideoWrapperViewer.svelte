@@ -17,7 +17,7 @@
     onNextAsset?: () => void;
     onVideoEnded?: () => void;
     onVideoStarted?: () => void;
-    onClick?: () => void;
+    controlsVisible?: boolean;
   }
 
   let {
@@ -33,7 +33,7 @@
     onNextAsset,
     onVideoEnded,
     onVideoStarted,
-    onClick,
+    controlsVisible = $bindable(true),
   }: Props = $props();
 
   const effectiveAssetId = $derived(assetId ?? asset.id);
@@ -54,6 +54,6 @@
     {onVideoEnded}
     {onVideoStarted}
     {onClose}
-    {onClick}
+    bind:controlsVisible
   />
 {/if}

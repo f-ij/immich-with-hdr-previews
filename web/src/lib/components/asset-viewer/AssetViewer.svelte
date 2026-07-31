@@ -512,15 +512,7 @@
 >
   <!-- Top navigation bar -->
   {#if $slideshowState === SlideshowState.None && !assetViewerManager.isShowEditor}
-    <div
-      data-testid="asset-viewer-navbar"
-      class={[
-        'col-span-4 col-start-1 row-span-1 row-start-1 transition-[transform,opacity] duration-200',
-        { '-translate-y-full opacity-0 pointer-events-none': !areViewerControlsVisible },
-      ]}
-      aria-hidden={!areViewerControlsVisible}
-      inert={!areViewerControlsVisible}
-    >
+    <div data-testid="asset-viewer-navbar" class="col-span-4 col-start-1 row-span-1 row-start-1">
       <AssetViewerNavBar
         {asset}
         {album}
@@ -533,6 +525,7 @@
         {onRemoveFromAlbum}
         {isPlayingOriginalVideo}
         {setPlayOriginalVideo}
+        controlsVisible={areViewerControlsVisible}
       />
     </div>
   {/if}
@@ -570,7 +563,7 @@
         onVideoEnded={() => navigateAsset()}
         onVideoStarted={handleVideoStarted}
         playOriginalVideo={isPlayingOriginalVideo}
-        onClick={toggleViewerControls}
+        bind:controlsVisible={areViewerControlsVisible}
       />
     {:else if viewerKind === 'LiveVideoViewer'}
       <VideoViewer
@@ -583,7 +576,7 @@
         onNextAsset={() => navigateAsset('next')}
         onVideoEnded={() => (assetViewerManager.isPlayingMotionPhoto = false)}
         playOriginalVideo={isPlayingOriginalVideo}
-        onClick={toggleViewerControls}
+        bind:controlsVisible={areViewerControlsVisible}
       />
     {:else if viewerKind === 'ImagePanaramaViewer'}
       <ImagePanoramaViewer {asset} />
@@ -610,7 +603,7 @@
         onVideoEnded={() => navigateAsset()}
         onVideoStarted={handleVideoStarted}
         playOriginalVideo={isPlayingOriginalVideo}
-        onClick={toggleViewerControls}
+        bind:controlsVisible={areViewerControlsVisible}
       />
     {/if}
 

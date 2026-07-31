@@ -48,6 +48,7 @@
     onRemoveFromAlbum?: (assetIds: string[]) => void;
     isPlayingOriginalVideo: boolean;
     setPlayOriginalVideo: (value: boolean) => void;
+    controlsVisible?: boolean;
   }
 
   let {
@@ -62,6 +63,7 @@
     onRemoveFromAlbum,
     isPlayingOriginalVideo = false,
     setPlayOriginalVideo,
+    controlsVisible = true,
   }: Props = $props();
 
   const isOwner = $derived(authManager.authenticated && asset.ownerId === authManager.user.id);
@@ -91,16 +93,27 @@
 
 <CommandPaletteDefaultProvider name={$t('assets')} actions={withoutIcons([Close, Cast, ...Object.values(Actions)])} />
 
-<div
-  class="flex h-16 place-items-center justify-between bg-linear-to-b from-black/40 px-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.4)] transition-transform duration-200"
->
-  <div class="dark">
+<div class="relative flex h-16 place-items-center justify-between px-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.4)]">
+  <div
+    data-testid="asset-viewer-navbar-backdrop"
+    class={[
+      'pointer-events-none absolute inset-0 bg-linear-to-b from-black/40 transition-opacity duration-200',
+      { 'opacity-0': !controlsVisible },
+    ]}
+  ></div>
+
+  <div class="dark relative z-10" data-testid="asset-viewer-close-action">
     <ActionButton action={Close} />
   </div>
 
   <div
-    class="dark -m-1 flex items-center gap-2 overflow-x-auto p-1 *:shrink-0"
+    class={[
+      'dark relative z-10 -m-1 flex items-center gap-2 overflow-x-auto p-1 transition-[transform,opacity] duration-200 *:shrink-0',
+      { '-translate-y-full opacity-0 pointer-events-none': !controlsVisible },
+    ]}
     data-testid="asset-viewer-navbar-actions"
+    aria-hidden={!controlsVisible}
+    inert={!controlsVisible}
   >
     {#if assetViewerManager.isImageLoading}
       <Tooltip text={$t('loading')}>
