@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { singleClick } from '$lib/actions/single-click';
   import FaceEditor from '$lib/components/asset-viewer/face-editor/FaceEditor.svelte';
   import VideoRemoteViewer from '$lib/components/asset-viewer/VideoRemoteViewer.svelte';
   import { assetViewerFadeDuration } from '$lib/constants';
@@ -58,6 +59,7 @@
     onVideoEnded?: () => void;
     onVideoStarted?: () => void;
     onClose?: () => void;
+    onClick?: () => void;
   }
 
   let {
@@ -72,6 +74,7 @@
     onVideoEnded = () => {},
     onVideoStarted = () => {},
     onClose = () => {},
+    onClick,
   }: Props = $props();
 
   let videoPlayer: HTMLVideoElement | undefined = $state();
@@ -383,6 +386,8 @@
             disablePictureInPicture
             playsinline
             {...useSwipe(onSwipe)}
+            use:singleClick={onClick}
+            data-testid="video-viewer"
             class="h-full object-contain"
             oncanplay={(e: Event) => handleCanPlay(e.currentTarget as HTMLVideoElement)}
             onended={onVideoEnded}
@@ -408,6 +413,8 @@
             disablePictureInPicture
             playsinline
             {...useSwipe(onSwipe)}
+            use:singleClick={onClick}
+            data-testid="video-viewer"
             class="h-full object-contain"
             oncanplay={(e) => handleCanPlay(e.currentTarget)}
             onended={onVideoEnded}

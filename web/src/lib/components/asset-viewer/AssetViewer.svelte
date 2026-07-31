@@ -119,6 +119,7 @@
   let slideshowStartAssetId = $state<string>();
   const allowVerticalPageScroll = browser && isIphoneSafariTab();
   let areViewerControlsVisible = $state(true);
+  const toggleViewerControls = () => (areViewerControlsVisible = !areViewerControlsVisible);
 
   const setPlayOriginalVideo = (value: boolean) => {
     isPlayingOriginalVideo = value;
@@ -569,6 +570,7 @@
         onVideoEnded={() => navigateAsset()}
         onVideoStarted={handleVideoStarted}
         playOriginalVideo={isPlayingOriginalVideo}
+        onClick={toggleViewerControls}
       />
     {:else if viewerKind === 'LiveVideoViewer'}
       <VideoViewer
@@ -581,6 +583,7 @@
         onNextAsset={() => navigateAsset('next')}
         onVideoEnded={() => (assetViewerManager.isPlayingMotionPhoto = false)}
         playOriginalVideo={isPlayingOriginalVideo}
+        onClick={toggleViewerControls}
       />
     {:else if viewerKind === 'ImagePanaramaViewer'}
       <ImagePanoramaViewer {asset} />
@@ -592,7 +595,7 @@
         {sharedLink}
         {onSwipe}
         {allowVerticalPageScroll}
-        onClick={() => (areViewerControlsVisible = !areViewerControlsVisible)}
+        onClick={toggleViewerControls}
       />
     {:else if viewerKind === 'VideoViewer'}
       <VideoViewer
@@ -607,6 +610,7 @@
         onVideoEnded={() => navigateAsset()}
         onVideoStarted={handleVideoStarted}
         playOriginalVideo={isPlayingOriginalVideo}
+        onClick={toggleViewerControls}
       />
     {/if}
 

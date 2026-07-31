@@ -36,8 +36,26 @@ vi.mock('@immich/sdk', async () => {
 });
 
 describe('AssetViewer', () => {
+  const partDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'part');
+  const remoteDescriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'remote');
+
   beforeAll(() => {
     Element.prototype.animate = getAnimateMock();
+    const partList = document.createElement('div').classList;
+    Object.defineProperty(HTMLElement.prototype, 'part', {
+      configurable: true,
+      get: () => partList,
+    });
+    vi.spyOn(CSSStyleSheet.prototype, 'insertRule').mockImplementation(() => 0);
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    const remotePlayback = Object.assign(new EventTarget(), {
+      watchAvailability: vi.fn().mockResolvedValue(0),
+      cancelWatchAvailability: vi.fn().mockResolvedValue(undefined),
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, 'remote', {
+      configurable: true,
+      get: () => remotePlayback,
+    });
     vi.stubGlobal('ResizeObserver', getResizeObserverMock());
   });
 
@@ -49,6 +67,16 @@ describe('AssetViewer', () => {
   });
 
   afterAll(() => {
+    if (partDescriptor) {
+      Object.defineProperty(HTMLElement.prototype, 'part', partDescriptor);
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, 'part');
+    }
+    if (remoteDescriptor) {
+      Object.defineProperty(HTMLMediaElement.prototype, 'remote', remoteDescriptor);
+    } else {
+      Reflect.deleteProperty(HTMLMediaElement.prototype, 'remote');
+    }
     vi.restoreAllMocks();
   });
 
@@ -70,6 +98,29 @@ describe('AssetViewer', () => {
     expect(navbar).toHaveClass('-translate-y-full', 'opacity-0', 'pointer-events-none');
 
     await fireEvent.click(photoViewer);
+    await vi.runAllTimersAsync();
+
+    expect(navbar).not.toHaveClass('-translate-y-full');
+  });
+
+  it('toggles the top bar when the video surface is clicked', async () => {
+    vi.useFakeTimers();
+    const asset = assetFactory.build({ type: AssetTypeEnum.Video });
+    const { getByTestId } = renderWithTooltips(AssetViewer, {
+      cursor: { current: asset },
+      showNavigation: false,
+    });
+    const navbar = getByTestId('asset-viewer-navbar');
+    const videoViewer = getByTestId('video-viewer');
+
+    expect(navbar).not.toHaveClass('-translate-y-full');
+
+    await fireEvent.click(videoViewer);
+    await vi.runAllTimersAsync();
+
+    expect(navbar).toHaveClass('-translate-y-full', 'opacity-0', 'pointer-events-none');
+
+    await fireEvent.click(videoViewer);
     await vi.runAllTimersAsync();
 
     expect(navbar).not.toHaveClass('-translate-y-full');
