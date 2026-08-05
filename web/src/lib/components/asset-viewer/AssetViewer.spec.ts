@@ -104,7 +104,8 @@ describe('AssetViewer', () => {
     expect(navbarActions).not.toHaveClass('-translate-y-full');
   });
 
-  it('keeps the video and viewer controls synchronized while leaving close visible', async () => {
+  it('keeps the video menu bar active while it is being clicked', async () => {
+    vi.useFakeTimers();
     const asset = assetFactory.build({ type: AssetTypeEnum.Video });
     const { getByTestId } = renderWithTooltips(AssetViewer, {
       cursor: { current: asset },
@@ -115,11 +116,61 @@ describe('AssetViewer', () => {
     const videoControls = getByTestId('video-controls');
     const mediaController = videoViewer.closest('media-controller')!;
 
+    mediaController.setAttribute('userinactive', '');
+    await fireEvent.playing(videoViewer);
+
+    expect(navbarActions).toHaveClass('-translate-y-full');
+    expect(videoControls).toHaveClass('translate-y-full');
+
+    await fireEvent.pointerDown(videoViewer, { pointerType: 'touch' });
+    await fireEvent.pointerUp(videoViewer, { pointerType: 'touch' });
+    await vi.advanceTimersByTimeAsync(1900);
+
+    await fireEvent.pointerDown(navbarActions, { pointerType: 'touch' });
+    await fireEvent.pointerUp(navbarActions, { pointerType: 'touch' });
+    await vi.advanceTimersByTimeAsync(100);
+
+    expect(navbarActions).not.toHaveClass('-translate-y-full');
+    expect(videoControls).not.toHaveClass('translate-y-full');
+
+    await vi.advanceTimersByTimeAsync(1900);
+
+    expect(navbarActions).toHaveClass('-translate-y-full', 'opacity-0', 'pointer-events-none');
+    expect(videoControls).toHaveClass('translate-y-full', 'opacity-0', 'pointer-events-none');
+    expect(getByTestId('asset-viewer-close-action')).toBeVisible();
+  });
+
+  it('keeps the video playback controls active through a pointer interaction', async () => {
+    vi.useFakeTimers();
+    const asset = assetFactory.build({ type: AssetTypeEnum.Video });
+    const { getByTestId } = renderWithTooltips(AssetViewer, {
+      cursor: { current: asset },
+      showNavigation: false,
+    });
+    const navbarActions = getByTestId('asset-viewer-navbar-actions');
+    const videoViewer = getByTestId('video-viewer');
+    const videoControls = getByTestId('video-controls');
+    const mediaController = videoViewer.closest('media-controller')!;
+    const playButton = videoControls.querySelector('media-play-button')!;
+
     expect(navbarActions).not.toHaveClass('-translate-y-full');
     expect(videoControls).not.toHaveClass('translate-y-full');
 
     mediaController.setAttribute('userinactive', '');
+    await fireEvent.pointerDown(playButton, { pointerType: 'touch' });
     await fireEvent.playing(videoViewer);
+
+    expect(navbarActions).not.toHaveClass('-translate-y-full');
+    expect(videoControls).not.toHaveClass('translate-y-full');
+
+    await fireEvent.pointerUp(playButton, { pointerType: 'touch' });
+    await fireEvent.click(playButton);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(navbarActions).not.toHaveClass('-translate-y-full');
+    expect(videoControls).not.toHaveClass('translate-y-full');
+
+    await vi.advanceTimersByTimeAsync(2000);
 
     expect(navbarActions).toHaveClass('-translate-y-full', 'opacity-0', 'pointer-events-none');
     expect(videoControls).toHaveClass('translate-y-full', 'opacity-0', 'pointer-events-none');

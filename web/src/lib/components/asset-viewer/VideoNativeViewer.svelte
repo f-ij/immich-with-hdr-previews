@@ -94,6 +94,8 @@
   let hasFocused = $state(false);
   let isVideoPaused = $state(true);
   let isUserInactive = $state(true);
+  let isInteractingWithControls = $state(false);
+  let controlsInteractionEndTimeout: ReturnType<typeof setTimeout> | undefined;
   let activeSession: { assetId: string; id: string } | undefined;
   let rebuildCount = 0;
 
@@ -273,6 +275,8 @@
   });
 
   onDestroy(() => {
+    clearTimeout(controlsInteractionEndTimeout);
+    removeControlsPointerEndListeners();
     if (videoPlayer) {
       videoPlayer.src = '';
     }
@@ -318,7 +322,7 @@
   };
 
   const syncControlsVisibility = () => {
-    controlsVisible = isVideoPaused || !isUserInactive;
+    controlsVisible = isVideoPaused || isInteractingWithControls || !isUserInactive;
   };
 
   const handleUserInactiveChange = (event: Event) => {
@@ -340,6 +344,29 @@
     isVideoPaused = true;
     syncControlsVisibility();
   };
+
+  function removeControlsPointerEndListeners() {
+    globalThis.window?.removeEventListener('pointerup', handleControlsPointerEnd);
+    globalThis.window?.removeEventListener('pointercancel', handleControlsPointerEnd);
+  }
+
+  function handleControlsPointerDown() {
+    removeControlsPointerEndListeners();
+    clearTimeout(controlsInteractionEndTimeout);
+    isInteractingWithControls = true;
+    syncControlsVisibility();
+    addEventListener('pointerup', handleControlsPointerEnd, { once: true });
+    addEventListener('pointercancel', handleControlsPointerEnd, { once: true });
+  }
+
+  function handleControlsPointerEnd() {
+    removeControlsPointerEndListeners();
+    clearTimeout(controlsInteractionEndTimeout);
+    controlsInteractionEndTimeout = setTimeout(() => {
+      isInteractingWithControls = false;
+      syncControlsVisibility();
+    }, 0);
+  }
 
   const keepAutohideControlledByViewer = (node: HTMLElement) => {
     node.setAttribute('noautohide', '');
@@ -482,6 +509,7 @@
           ]}
           aria-hidden={!controlsVisible}
           inert={!controlsVisible}
+          onpointerdown={handleControlsPointerDown}
         >
           <media-control-bar part="bottom" class="flex h-10 w-full gap-2">
             <media-play-button class="shrink-0 rounded-full p-2 outline-none">

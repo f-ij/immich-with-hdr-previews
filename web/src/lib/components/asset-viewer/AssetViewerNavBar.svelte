@@ -49,6 +49,7 @@
     isPlayingOriginalVideo: boolean;
     setPlayOriginalVideo: (value: boolean) => void;
     controlsVisible?: boolean;
+    onControlsInteraction?: () => void;
   }
 
   let {
@@ -64,6 +65,7 @@
     isPlayingOriginalVideo = false,
     setPlayOriginalVideo,
     controlsVisible = true,
+    onControlsInteraction,
   }: Props = $props();
 
   const isOwner = $derived(authManager.authenticated && asset.ownerId === authManager.user.id);
@@ -114,6 +116,9 @@
     data-testid="asset-viewer-navbar-actions"
     aria-hidden={!controlsVisible}
     inert={!controlsVisible}
+    onpointerdown={onControlsInteraction}
+    onpointerup={onControlsInteraction}
+    onfocusin={onControlsInteraction}
   >
     {#if assetViewerManager.isImageLoading}
       <Tooltip text={$t('loading')}>

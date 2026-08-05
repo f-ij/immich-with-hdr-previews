@@ -292,6 +292,17 @@
 
   let assetViewerHtmlElement = $state<HTMLElement>();
 
+  const keepVideoControlsActive = () => {
+    const mediaController = assetViewerHtmlElement?.querySelector('media-controller');
+    if (!mediaController) {
+      return;
+    }
+
+    // The navbar is outside Media Chrome, so forward its activity to the controller
+    // to keep both bars on the same inactivity state and auto-hide timer.
+    mediaController.dispatchEvent(new PointerEvent('pointermove', { pointerType: 'mouse' }));
+  };
+
   const slideshowHistory = new SlideshowHistory((asset) => {
     handlePromiseError(assetViewerManager.setAssetId(asset.id).then(() => ($restartSlideshowProgress = true)));
   });
@@ -526,6 +537,7 @@
         {isPlayingOriginalVideo}
         {setPlayOriginalVideo}
         controlsVisible={areViewerControlsVisible}
+        onControlsInteraction={keepVideoControlsActive}
       />
     </div>
   {/if}
