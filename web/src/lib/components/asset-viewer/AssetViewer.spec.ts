@@ -104,46 +104,10 @@ describe('AssetViewer', () => {
     expect(navbarActions).not.toHaveClass('-translate-y-full');
   });
 
-  it('keeps the video menu bar active while it is being clicked', async () => {
+  it('toggles both video bars only when the video surface is clicked', async () => {
     vi.useFakeTimers();
-    const asset = assetFactory.build({ type: AssetTypeEnum.Video });
-    const { getByTestId } = renderWithTooltips(AssetViewer, {
-      cursor: { current: asset },
-      showNavigation: false,
-    });
-    const navbarActions = getByTestId('asset-viewer-navbar-actions');
-    const videoViewer = getByTestId('video-viewer');
-    const videoControls = getByTestId('video-controls');
-    const mediaController = videoViewer.closest('media-controller')!;
-
-    mediaController.setAttribute('userinactive', '');
-    await fireEvent.playing(videoViewer);
-
-    expect(navbarActions).toHaveClass('-translate-y-full');
-    expect(videoControls).toHaveClass('translate-y-full');
-
-    await fireEvent.pointerDown(videoViewer, { pointerType: 'touch' });
-    await fireEvent.pointerUp(videoViewer, { pointerType: 'touch' });
-    await vi.advanceTimersByTimeAsync(1900);
-
-    await fireEvent.pointerDown(navbarActions, { pointerType: 'touch' });
-    await fireEvent.pointerUp(navbarActions, { pointerType: 'touch' });
-    await vi.advanceTimersByTimeAsync(100);
-
-    expect(navbarActions).not.toHaveClass('-translate-y-full');
-    expect(videoControls).not.toHaveClass('translate-y-full');
-
-    await vi.advanceTimersByTimeAsync(1900);
-
-    expect(navbarActions).toHaveClass('-translate-y-full', 'opacity-0', 'pointer-events-none');
-    expect(videoControls).toHaveClass('translate-y-full', 'opacity-0', 'pointer-events-none');
-    expect(getByTestId('asset-viewer-close-action')).toBeVisible();
-  });
-
-  it('keeps the video playback controls active through a pointer interaction', async () => {
-    vi.useFakeTimers();
-    const asset = assetFactory.build({ type: AssetTypeEnum.Video });
-    const { getByTestId } = renderWithTooltips(AssetViewer, {
+    const asset = assetFactory.build({ type: AssetTypeEnum.Video, hasMetadata: true });
+    const { getByLabelText, getByTestId } = renderWithTooltips(AssetViewer, {
       cursor: { current: asset },
       showNavigation: false,
     });
@@ -152,46 +116,51 @@ describe('AssetViewer', () => {
     const videoControls = getByTestId('video-controls');
     const mediaController = videoViewer.closest('media-controller')!;
     const playButton = videoControls.querySelector('media-play-button')!;
+    const infoButton = getByLabelText('info');
+    infoButton.addEventListener('click', (event) => event.stopImmediatePropagation(), { capture: true });
 
     expect(navbarActions).not.toHaveClass('-translate-y-full');
     expect(videoControls).not.toHaveClass('translate-y-full');
+    expect(videoControls).toHaveAttribute('noautohide');
 
-    mediaController.setAttribute('userinactive', '');
-    await fireEvent.pointerDown(playButton, { pointerType: 'touch' });
-    await fireEvent.playing(videoViewer);
+    for (const control of [infoButton, playButton, infoButton, playButton]) {
+      await fireEvent.pointerDown(control, { pointerType: 'touch' });
+      await fireEvent.pointerUp(control, { pointerType: 'touch' });
+      await fireEvent.click(control);
+      await vi.advanceTimersByTimeAsync(300);
 
-    expect(navbarActions).not.toHaveClass('-translate-y-full');
-    expect(videoControls).not.toHaveClass('translate-y-full');
+      expect(navbarActions).not.toHaveClass('-translate-y-full');
+      expect(videoControls).not.toHaveClass('translate-y-full');
+    }
 
-    await fireEvent.pointerUp(playButton, { pointerType: 'touch' });
-    await fireEvent.click(playButton);
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(navbarActions).not.toHaveClass('-translate-y-full');
-    expect(videoControls).not.toHaveClass('translate-y-full');
-
+    mediaController.dispatchEvent(new CustomEvent('userinactivechange', { detail: true }));
     await vi.advanceTimersByTimeAsync(2000);
+
+    expect(navbarActions).not.toHaveClass('-translate-y-full');
+    expect(videoControls).not.toHaveClass('translate-y-full');
+
+    await fireEvent.click(videoViewer);
+    await vi.advanceTimersByTimeAsync(300);
 
     expect(navbarActions).toHaveClass('-translate-y-full', 'opacity-0', 'pointer-events-none');
     expect(videoControls).toHaveClass('translate-y-full', 'opacity-0', 'pointer-events-none');
     expect(getByTestId('asset-viewer-close-action')).toBeVisible();
 
-    await fireEvent.pointerDown(videoViewer, { pointerType: 'touch' });
-    await fireEvent.pointerUp(videoViewer, { pointerType: 'touch' });
+    await fireEvent.click(videoViewer);
+    await vi.advanceTimersByTimeAsync(300);
 
     expect(navbarActions).not.toHaveClass('-translate-y-full');
     expect(videoControls).not.toHaveClass('translate-y-full');
 
-    await fireEvent.pointerDown(videoViewer, { pointerType: 'touch' });
-    await fireEvent.pointerUp(videoViewer, { pointerType: 'touch' });
+    for (const control of [infoButton, playButton, infoButton, playButton]) {
+      await fireEvent.pointerDown(control, { pointerType: 'touch' });
+      await fireEvent.pointerUp(control, { pointerType: 'touch' });
+      await fireEvent.click(control);
+      await vi.advanceTimersByTimeAsync(300);
 
-    expect(navbarActions).toHaveClass('-translate-y-full');
-    expect(videoControls).toHaveClass('translate-y-full');
-
-    await fireEvent.pause(videoViewer);
-
-    expect(navbarActions).not.toHaveClass('-translate-y-full');
-    expect(videoControls).not.toHaveClass('translate-y-full');
+      expect(navbarActions).not.toHaveClass('-translate-y-full');
+      expect(videoControls).not.toHaveClass('translate-y-full');
+    }
   });
 
   it.skip('updates the top bar favorite action after pressing favorite', async () => {
