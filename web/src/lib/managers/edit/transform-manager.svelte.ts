@@ -1,14 +1,11 @@
+import { type EditActions, type EditToolManager } from '#lib/managers/edit/edit-manager.svelte.ts';
+import { getAssetMediaUrl } from '#lib/utils.ts';
+import { getDimensions } from '#lib/utils/asset-utils.ts';
+import { normalizeTransformEdits } from '#lib/utils/editor.ts';
+import { handleError } from '#lib/utils/handle-error.ts';
 import { AssetEditAction, AssetMediaSize, MirrorAxis, type AssetResponseDto, type CropParameters } from '@immich/sdk';
 import { clamp } from 'lodash-es';
 import { tick } from 'svelte';
-import { type EditActions, type EditToolManager } from '$lib/managers/edit/edit-manager.svelte';
-import { getAssetMediaUrl } from '$lib/utils';
-import { getDimensions } from '$lib/utils/asset-utils';
-import { normalizeTransformEdits } from '$lib/utils/editor';
-import { handleError } from '$lib/utils/handle-error';
-
-export type CropAspectRatio =
-  '1:1' | '16:9' | '4:3' | '3:2' | '7:5' | '9:16' | '3:4' | '2:3' | '5:7' | 'free' | 'reset';
 
 type Region = {
   x: number;

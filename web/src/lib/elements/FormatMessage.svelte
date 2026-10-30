@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { InterpolationValues } from '$lib/elements/format-message';
+  import type { InterpolationValues } from '#lib/elements/format-message.ts';
   import {
     TYPE,
     type MessageFormatElement,
@@ -23,7 +23,7 @@
   let { key, values = {}, children }: Props = $props();
 
   const getLocale = (locale?: string | null) => {
-    if (locale == null) {
+    if (!locale) {
       throw new Error('Cannot format a message without first setting the initial locale.');
     }
 

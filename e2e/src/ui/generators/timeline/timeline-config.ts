@@ -1,5 +1,5 @@
 import type { AssetVisibility } from '@immich/sdk';
-import { DayPattern, MonthDistribution } from 'src/ui/generators/timeline/distribution-patterns';
+import { DayPattern, MonthDistribution } from 'src/ui/generators/timeline/distribution-patterns.js';
 
 // Constants for generation parameters
 export const GENERATION_CONSTANTS = {
@@ -23,13 +23,6 @@ export const ASPECT_RATIO_WEIGHTS = {
   '1:1': 0.09, // 9% 1:1 square
   '3:1': 0.01, // 1% 3:1 panorama
 } as const;
-
-export type AspectRatio = {
-  width: number;
-  height: number;
-  ratio: number;
-  name: string;
-};
 
 // Mock configuration for asset generation - will be transformed to API response formats
 export type MockTimelineAsset = {
@@ -64,9 +57,7 @@ export type MonthSpec = {
   pattern: DayPattern;
 };
 
-/**
- * Configuration for timeline data generation
- */
+/** Configuration for timeline data generation */
 export type TimelineConfig = {
   ownerId?: string;
   months: MonthSpec[];
@@ -95,9 +86,7 @@ export type SerializedTimelineData = {
   album: MockAlbum;
 };
 
-/**
- * Validates a TimelineConfig object to ensure all values are within expected ranges
- */
+/** Validates a TimelineConfig object to ensure all values are within expected ranges */
 export function validateTimelineConfig(config: TimelineConfig): void {
   if (!config.months || config.months.length === 0) {
     throw new Error('TimelineConfig must contain at least one month');
@@ -153,9 +142,7 @@ export function validateTimelineConfig(config: TimelineConfig): void {
   }
 }
 
-/**
- * Create a default timeline configuration
- */
+/** Create a default timeline configuration */
 export function createDefaultTimelineConfig(): TimelineConfig {
   const months: MonthSpec[] = [
     // 2024 - Mix of patterns

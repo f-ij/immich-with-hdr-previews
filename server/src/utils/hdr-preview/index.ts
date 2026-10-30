@@ -1,13 +1,13 @@
-import { writeHdrAvifThumbnail } from 'src/utils/avif-hdr-bypass';
-import { writeHdrHeifAvifPreview } from 'src/utils/hdr-preview/heif';
-import { writeHdrJxlAvifPreview } from 'src/utils/hdr-preview/jxl';
+import { writeHdrAvifThumbnail } from 'src/utils/avif-hdr-bypass.js';
+import { writeHdrHeifAvifPreview } from 'src/utils/hdr-preview/heif.js';
+import { writeHdrJxlAvifPreview } from 'src/utils/hdr-preview/jxl.js';
 import {
   HDR_PREVIEW_SOURCE_MIME_TYPES,
   HdrImageAvifPreviewOptions,
   HdrPreviewSourceMimeType,
   HdrSourcePreviewOptions,
-} from 'src/utils/hdr-preview/types';
-export { hasHdrTransferMetadata } from 'src/utils/hdr-preview/probe';
+} from 'src/utils/hdr-preview/types.js';
+export { hasHdrTransferMetadata } from 'src/utils/hdr-preview/probe.js';
 
 type HdrPreviewHandler = (options: HdrSourcePreviewOptions) => Promise<void>;
 

@@ -1,12 +1,12 @@
+import { getClosestAvailableLocale, langs } from '#lib/utils/i18n.ts';
 import { readFileSync, readdirSync } from 'node:fs';
-import { getClosestAvailableLocale, langs } from '$lib/utils/i18n';
 
 describe('i18n', () => {
   describe('loaders', () => {
     const languageFiles = readdirSync('../i18n').sort();
     for (const filename of languageFiles) {
       test(`${filename} should have a loader`, async () => {
-        if (!filename.endsWith('.json') || filename == 'package.json') {
+        if (!filename.endsWith('.json') || filename === 'package.json') {
           return;
         }
 

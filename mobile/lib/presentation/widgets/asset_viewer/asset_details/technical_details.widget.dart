@@ -4,10 +4,11 @@ import 'package:immich_mobile/domain/models/asset/base_asset.model.dart';
 import 'package:immich_mobile/domain/models/exif.model.dart';
 import 'package:immich_mobile/extensions/build_context_extensions.dart';
 import 'package:immich_mobile/extensions/theme_extensions.dart';
-import 'package:immich_mobile/extensions/translate_extensions.dart';
+import 'package:immich_mobile/generated/translations.g.dart';
 import 'package:immich_mobile/presentation/widgets/asset_viewer/sheet_tile.widget.dart';
 import 'package:immich_mobile/repositories/asset_media.repository.dart';
 import 'package:immich_mobile/utils/bytes_units.dart';
+import 'package:immich_mobile/utils/camera.utils.dart';
 
 const _kSeparator = '  •  ';
 
@@ -27,7 +28,7 @@ class TechnicalDetails extends ConsumerWidget {
     return Column(
       children: [
         SheetTile(
-          title: 'details'.t(context: context),
+          title: context.t.details,
           titleStyle: context.textTheme.labelLarge?.copyWith(color: context.colorScheme.onSurfaceSecondary),
         ),
         _buildFileInfoTile(context, ref, asset, exifInfo),
@@ -72,7 +73,7 @@ class TechnicalDetails extends ConsumerWidget {
     final subtitleStyle = context.textTheme.bodyMedium?.copyWith(color: context.colorScheme.onSurfaceSecondary);
 
     if (asset is LocalAsset) {
-      final assetMediaRepository = ref.watch(assetMediaRepositoryProvider);
+      final assetMediaRepository = ref.read(assetMediaRepositoryProvider);
       return FutureBuilder<String?>(
         future: assetMediaRepository.getOriginalFilename(asset.id),
         builder: (context, snapshot) {
@@ -99,7 +100,7 @@ class TechnicalDetails extends ConsumerWidget {
   static String _getFileInfo(BaseAsset asset, ExifInfo? exifInfo) {
     final height = asset.height;
     final width = asset.width;
-    final resolution = (width != null && height != null) ? "$width x $height" : null;
+    final resolution = (width != null && height != null) ? "$width × $height" : null;
     final fileSize = exifInfo?.fileSize != null ? formatBytes(exifInfo!.fileSize!) : null;
 
     return switch ((fileSize, resolution)) {
@@ -114,12 +115,7 @@ class TechnicalDetails extends ConsumerWidget {
     if (exifInfo == null) {
       return null;
     }
-    return switch ((exifInfo.make, exifInfo.model)) {
-      (null, null) => null,
-      (final String make, null) => make,
-      (null, final String model) => model,
-      (final String make, final String model) => '$make $model',
-    };
+    return getCameraName(exifInfo.make, exifInfo.model);
   }
 
   static String? _getCameraInfoSubtitle(ExifInfo? exifInfo) {

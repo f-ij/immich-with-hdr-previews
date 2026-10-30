@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker';
 import type { AssetResponseDto } from '@immich/sdk';
 import { expect, test } from '@playwright/test';
-import { toAssetResponseDto } from 'src/ui/generators/timeline';
+import { toAssetResponseDto } from 'src/ui/generators/timeline.js';
 import {
   createMockStack,
   createMockStackAsset,
@@ -75,8 +75,8 @@ test.describe('asset-viewer stack', () => {
     await page.goto(`/photos/${fixture.primaryAsset.id}`);
     await ensureDetailPanelVisible(page);
 
-    const stackAssets = page.locator('#stack-slideshow [data-asset]');
-    await stackAssets.nth(1).click();
+    const secondAsset = page.locator(`#stack-slideshow [data-asset="${secondAssetDto.id}"]`);
+    await secondAsset.click();
 
     const tags = page.getByTestId('detail-panel-tags').getByRole('link');
     await expect(tags.first()).toHaveText('test/2');

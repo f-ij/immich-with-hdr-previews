@@ -1,16 +1,20 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:immich_mobile/domain/models/asset/base_asset.model.dart';
 import 'package:immich_mobile/domain/models/timeline.model.dart';
 import 'package:immich_mobile/extensions/build_context_extensions.dart';
+import 'package:immich_mobile/extensions/datetime_extensions.dart';
 import 'package:immich_mobile/extensions/theme_extensions.dart';
 import 'package:immich_mobile/providers/haptic_feedback.provider.dart';
 import 'package:immich_mobile/providers/infrastructure/readonly_mode.provider.dart';
 import 'package:immich_mobile/providers/infrastructure/timeline.provider.dart';
 import 'package:immich_mobile/providers/timeline/multiselect.provider.dart';
 
-class TimelineHeader extends HookConsumerWidget {
+class TimelineHeader extends HookWidget {
   final Bucket bucket;
   final HeaderType header;
   final double height;
@@ -24,20 +28,20 @@ class TimelineHeader extends HookConsumerWidget {
     required this.assetOffset,
   });
 
-  String _formatMonth(BuildContext context, DateTime date) {
+  String _formatMonth(DateTime date) {
     final formatter = date.year == DateTime.now().year
-        ? DateFormat.MMMM(context.locale.toLanguageTag())
-        : DateFormat.yMMMM(context.locale.toLanguageTag());
+        ? DateFormat.MMMM(resolvedDateTimeLocale())
+        : DateFormat.yMMMM(resolvedDateTimeLocale());
     return formatter.format(date);
   }
 
-  String _formatDay(BuildContext context, DateTime date) {
-    final formatter = DateFormat.yMMMEd(context.locale.toLanguageTag());
+  String _formatDay(DateTime date) {
+    final formatter = DateFormat.yMMMEd(resolvedDateTimeLocale());
     return formatter.format(date);
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     if (bucket is! TimeBucket || header == HeaderType.none) {
       return const SizedBox.shrink();
     }
@@ -58,7 +62,7 @@ class TimelineHeader extends HookConsumerWidget {
               Row(
                 children: [
                   Text(
-                    toBeginningOfSentenceCase(_formatMonth(context, date)),
+                    toBeginningOfSentenceCase(_formatMonth(date)),
                     style: context.textTheme.labelLarge?.copyWith(fontSize: 24),
                   ),
                   const Spacer(),
@@ -69,7 +73,7 @@ class TimelineHeader extends HookConsumerWidget {
               Row(
                 children: [
                   Text(
-                    toBeginningOfSentenceCase(_formatDay(context, date)),
+                    toBeginningOfSentenceCase(_formatDay(date)),
                     style: context.textTheme.labelLarge?.copyWith(fontSize: 15),
                   ),
                   const Spacer(),
@@ -99,13 +103,17 @@ class _BulkSelectIconButton extends ConsumerWidget {
     }
 
     final isReadonlyModeEnabled = ref.watch(readonlyModeProvider);
-    final isAllSelected = ref.watch(bucketSelectionProvider(bucketAssets));
+    final isAllSelected = ref.watch(
+      multiSelectProvider.select(
+        (state) => bucketAssets.isNotEmpty && bucketAssets.every(state.selectedAssets.contains),
+      ),
+    );
 
     return isReadonlyModeEnabled
         ? const SizedBox.shrink()
         : IconButton(
             onPressed: () {
-              ref.read(multiSelectProvider.notifier).toggleBucketSelection(assetOffset, bucket.assetCount);
+              unawaited(ref.read(multiSelectProvider.notifier).toggleBucketSelection(assetOffset, bucket.assetCount));
               ref.read(hapticFeedbackProvider.notifier).heavyImpact();
             },
             icon: isAllSelected

@@ -17,6 +17,7 @@ import 'package:immich_mobile/presentation/widgets/asset_viewer/asset_stack.widg
 import 'package:immich_mobile/presentation/widgets/asset_viewer/ocr_overlay.widget.dart';
 import 'package:immich_mobile/presentation/widgets/asset_viewer/video_viewer.widget.dart';
 import 'package:immich_mobile/presentation/widgets/images/image_provider.dart';
+import 'package:immich_mobile/presentation/widgets/images/progressive_image.widget.dart';
 import 'package:immich_mobile/presentation/widgets/images/thumbnail.widget.dart';
 import 'package:immich_mobile/providers/asset_viewer/asset_viewer.provider.dart';
 import 'package:immich_mobile/providers/asset_viewer/is_motion_video_playing.provider.dart';
@@ -50,9 +51,14 @@ class _AssetPageState extends ConsumerState<AssetPage> {
 
   bool _showingDetails = false;
   bool _isZoomed = false;
+  bool _restoreControlsAfterZoom = false;
+  // Frozen during dismiss drag + settle to prevent widget tree swap mid-animation.
+  bool _wasMotionPlayingAtDismiss = false;
+  bool _isDismissAnimating = false;
 
   final _scrollController = SnapScrollController();
   double _snapOffset = 0.0;
+  static const double _maxImagePixelSize = 12.0;
 
   DragStartDetails? _dragStart;
   _DragIntent _dragIntent = _DragIntent.none;
@@ -87,8 +93,8 @@ class _AssetPageState extends ConsumerState<AssetPage> {
   @override
   void dispose() {
     _scrollController.dispose();
-    _scaleBoundarySub?.cancel();
-    _eventSubscription?.cancel();
+    unawaited(_scaleBoundarySub?.cancel());
+    unawaited(_eventSubscription?.cancel());
     super.dispose();
   }
 
@@ -112,7 +118,7 @@ class _AssetPageState extends ConsumerState<AssetPage> {
       return;
     }
     _viewer.setShowingDetails(true);
-    _scrollController.animateTo(_snapOffset, duration: Durations.medium2, curve: Curves.easeOutCubic);
+    unawaited(_scrollController.animateTo(_snapOffset, duration: Durations.medium2, curve: Curves.easeOutCubic));
   }
 
   bool _willClose(double scrollVelocity) =>
@@ -161,6 +167,9 @@ class _AssetPageState extends ConsumerState<AssetPage> {
         > 0 => _DragIntent.dismiss,
         _ => _DragIntent.none,
       };
+      if (_dragIntent == _DragIntent.dismiss) {
+        _wasMotionPlayingAtDismiss = ref.read(isPlayingMotionVideoProvider);
+      }
     }
 
     switch (_dragIntent) {
@@ -199,15 +208,25 @@ class _AssetPageState extends ConsumerState<AssetPage> {
       case _DragIntent.dismiss:
         const popThreshold = 75.0;
         if (details.localPosition.dy - start!.localPosition.dy > popThreshold) {
-          context.maybePop();
+          unawaited(context.maybePop());
           return;
         }
-        _viewController?.animateMultiple(
-          position: _initialPhotoViewState.position,
-          scale: _viewController?.initialScale ?? _initialPhotoViewState.scale,
-          rotation: _initialPhotoViewState.rotation,
-        );
         _viewer.setOpacity(1.0);
+        _isDismissAnimating = true;
+        unawaited(
+          _viewController
+              ?.animateMultiple(
+                position: _initialPhotoViewState.position,
+                scale: _viewController?.initialScale ?? _initialPhotoViewState.scale,
+                rotation: _initialPhotoViewState.rotation,
+              )
+              .whenComplete(() {
+                if (!mounted) {
+                  return;
+                }
+                setState(() => _isDismissAnimating = false);
+              }),
+        );
     }
   }
 
@@ -250,6 +269,8 @@ class _AssetPageState extends ConsumerState<AssetPage> {
       return;
     }
 
+    _restoreControlsAfterZoom = false;
+
     final tapToNavigate = ref.read(appConfigProvider).viewer.tapToNavigate;
     if (!tapToNavigate) {
       _viewer.toggleControls();
@@ -281,25 +302,28 @@ class _AssetPageState extends ConsumerState<AssetPage> {
 
     if (scaleState != PhotoViewScaleState.initial) {
       if (_dragStart == null) {
+        _restoreControlsAfterZoom |= ref.read(assetViewerProvider).showingControls;
         _viewer.setControls(false);
       }
       return;
     }
 
-    if (!_showingDetails) {
+    if (!_showingDetails && _restoreControlsAfterZoom) {
       _viewer.setControls(true);
     }
+
+    _restoreControlsAfterZoom = false;
   }
 
   void _listenForScaleBoundaries(PhotoViewControllerBase? controller) {
-    _scaleBoundarySub?.cancel();
+    unawaited(_scaleBoundarySub?.cancel());
     _scaleBoundarySub = null;
     if (controller == null || controller.scaleBoundaries != null) {
       return;
     }
     _scaleBoundarySub = controller.outputStateStream.listen((_) {
       if (controller.scaleBoundaries != null) {
-        _scaleBoundarySub?.cancel();
+        unawaited(_scaleBoundarySub?.cancel());
         _scaleBoundarySub = null;
         if (mounted) {
           setState(() {});
@@ -333,34 +357,44 @@ class _AssetPageState extends ConsumerState<AssetPage> {
     required bool isCurrent,
     required bool isPlayingMotionVideo,
     required String? localFilePath,
+    required Size? remoteThumbnailSize,
   }) {
     final size = context.sizeData;
-    final imageProvider = getFullImageProvider(asset, size: size, localFilePath: localFilePath);
+    final imageProvider = getFullImageProvider(
+      asset,
+      size: size,
+      localFilePath: localFilePath,
+      remoteThumbnailSize: remoteThumbnailSize,
+    );
 
     if (asset.isImage && !isPlayingMotionVideo) {
-      return PhotoView(
-        key: Key(asset.heroTag),
-        index: widget.index,
-        imageProvider: imageProvider,
-        heroAttributes: heroAttributes,
-        loadingBuilder: (context, progress, index) => const Center(child: ImmichLoadingIndicator()),
-        gaplessPlayback: true,
-        filterQuality: FilterQuality.high,
-        tightMode: true,
-        enablePanAlways: true,
-        disableScaleGestures: _showingDetails,
-        scaleStateChangedCallback: _onScaleStateChanged,
-        onPageBuild: _onPageBuild,
-        onDragStart: _onDragStart,
-        onDragUpdate: _onDragUpdate,
-        onDragEnd: _onDragEnd,
-        onDragCancel: _onDragCancel,
-        onTapUp: _onTapUp,
-        onLongPressStart: asset.isMotionPhoto ? _onLongPress : null,
-        errorBuilder: (_, __, ___) => SizedBox(
-          width: size.width,
-          height: size.height,
-          child: Thumbnail.fromAsset(asset: asset, fit: BoxFit.contain),
+      return ProgressiveImage(
+        provider: imageProvider,
+        builder: (context, provider) => PhotoView(
+          key: Key(asset.heroTag),
+          index: widget.index,
+          imageProvider: provider,
+          heroAttributes: heroAttributes,
+          loadingBuilder: (context, progress, index) => const Center(child: ImmichLoadingIndicator()),
+          gaplessPlayback: true,
+          filterQuality: FilterQuality.high,
+          tightMode: true,
+          enablePanAlways: true,
+          maxScale: _maxImagePixelSize,
+          disableScaleGestures: _showingDetails,
+          scaleStateChangedCallback: _onScaleStateChanged,
+          onPageBuild: _onPageBuild,
+          onDragStart: _onDragStart,
+          onDragUpdate: _onDragUpdate,
+          onDragEnd: _onDragEnd,
+          onDragCancel: _onDragCancel,
+          onTapUp: _onTapUp,
+          onLongPressStart: asset.isMotionPhoto ? _onLongPress : null,
+          errorBuilder: (_, _, _) => SizedBox(
+            width: size.width,
+            height: size.height,
+            child: Thumbnail.fromAsset(asset: asset, fit: BoxFit.contain),
+          ),
         ),
       );
     }
@@ -381,6 +415,7 @@ class _AssetPageState extends ConsumerState<AssetPage> {
       basePosition: Alignment.center,
       disableScaleGestures: _showingDetails,
       minScale: PhotoViewComputedScale.contained,
+      maxScale: _maxImagePixelSize,
       initialScale: PhotoViewComputedScale.contained,
       tightMode: true,
       onPageBuild: _onPageBuild,
@@ -397,11 +432,17 @@ class _AssetPageState extends ConsumerState<AssetPage> {
 
   @override
   Widget build(BuildContext context) {
-    final currentAsset = ref.watch(assetViewerProvider.select((s) => s.currentAsset));
+    final (currentAsset, thumbnailSize) = ref.watch(
+      assetViewerProvider.select((s) => (s.currentAsset, s.thumbnailSize)),
+    );
     _showingDetails = ref.watch(assetViewerProvider.select((s) => s.showingDetails));
     final stackIndex = ref.watch(assetViewerProvider.select((s) => s.stackIndex));
-    final isPlayingMotionVideo = ref.watch(isPlayingMotionVideoProvider);
-    final timelineOrigin = ref.read(timelineServiceProvider).origin;
+    final liveMotionPlaying = ref.watch(isPlayingMotionVideoProvider);
+    // Preserve the playback status while dismissing to prevent switching views mid-animation.
+    final isPlayingMotionVideo = (_dragIntent == _DragIntent.dismiss || _isDismissAnimating)
+        ? _wasMotionPlayingAtDismiss
+        : liveMotionPlaying;
+    final timelineOrigin = ref.watch(timelineServiceProvider).origin;
     final showingOcr = ref.watch(assetViewerProvider.select((s) => s.showingOcr));
 
     final asset = _asset;
@@ -454,6 +495,7 @@ class _AssetPageState extends ConsumerState<AssetPage> {
                     isCurrent: isCurrent,
                     isPlayingMotionVideo: isPlayingMotionVideo,
                     localFilePath: viewIntentFilePath,
+                    remoteThumbnailSize: thumbnailSize,
                   ),
                 ),
                 if (showingOcr && displayAsset.width != null && displayAsset.height != null)
@@ -478,7 +520,9 @@ class _AssetPageState extends ConsumerState<AssetPage> {
                         child: AnimatedOpacity(
                           opacity: _showingDetails ? 1.0 : 0.0,
                           duration: Durations.short2,
-                          child: AssetDetails(asset: displayAsset, minHeight: viewportHeight - snapTarget),
+                          child: _showingDetails
+                              ? AssetDetails(asset: displayAsset, minHeight: viewportHeight - snapTarget)
+                              : SizedBox(height: viewportHeight - snapTarget),
                         ),
                       ),
                     ],

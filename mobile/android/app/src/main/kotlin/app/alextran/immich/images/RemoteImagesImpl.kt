@@ -5,10 +5,12 @@ import android.graphics.ImageDecoder
 import android.os.Build
 import android.os.CancellationSignal
 import android.os.OperationCanceledException
+import android.util.Size
 import androidx.exifinterface.media.ExifInterface
 import app.alextran.immich.INITIAL_BUFFER_SIZE
 import app.alextran.immich.NativeBuffer
 import app.alextran.immich.NativeByteBuffer
+import app.alextran.immich.NativeImage
 import app.alextran.immich.core.HttpClientManager
 import kotlinx.coroutines.*
 import okhttp3.Cache
@@ -55,10 +57,9 @@ private val RAW_MIME_TYPES = setOf(
   "image/x-sony-sr2", "image/x-sony-srf", "image/x3f",
 )
 
-private fun isRawMime(contentType: String?): Boolean {
-  val mime = contentType?.substringBefore(';')?.trim()?.lowercase() ?: return false
-  return mime in RAW_MIME_TYPES
-}
+private fun mimeType(contentType: String?) = contentType?.substringBefore(';')?.trim()?.lowercase()
+
+private fun isRawMime(contentType: String?) = mimeType(contentType) in RAW_MIME_TYPES
 
 class RemoteImagesImpl(context: Context) : RemoteImageApi {
   private val requestMap = ConcurrentHashMap<Long, RemoteRequest>()
@@ -79,6 +80,8 @@ class RemoteImagesImpl(context: Context) : RemoteImageApi {
     url: String,
     requestId: Long,
     preferEncoded: Boolean,
+    width: Long?,
+    height: Long?,
     callback: (Result<Map<String, Long>?>) -> Unit
   ) {
     val signal = CancellationSignal()
@@ -94,6 +97,42 @@ class RemoteImagesImpl(context: Context) : RemoteImageApi {
           return@fetch callback(CANCELLED)
         }
 
+        // Neither Android nor Flutter can decode JPEG XL, so this applies to encoded requests too.
+        if (mimeType(contentType) == "image/jxl") {
+          decodeExecutor.execute {
+            val info = IntArray(3)
+            // The fetch is done, so cancelling now stops the decode instead.
+            val cancelled = ByteBuffer.allocateDirect(1)
+            signal.setOnCancelListener { NativeImage.cancel(cancelled) }
+            val pointer = if (signal.isCanceled) 0L else NativeImage.decode(
+              buffer.pointer,
+              buffer.offset,
+              width?.toInt() ?: 0,
+              height?.toInt() ?: 0,
+              MAX_PIXEL_SIZE,
+              cancelled,
+              info
+            )
+            buffer.free()
+            requestMap.remove(requestId)
+            callback(
+              when {
+                pointer != 0L -> Result.success(
+                  mapOf(
+                    "pointer" to pointer,
+                    "width" to info[0].toLong(),
+                    "height" to info[1].toLong(),
+                    "rowBytes" to info[2].toLong()
+                  )
+                )
+                signal.isCanceled -> CANCELLED
+                else -> Result.failure(IOException("Failed to decode JPEG XL image"))
+              }
+            )
+          }
+          return@fetch
+        }
+
         // Decode natively when the caller wants pixels: Flutter's fallback decoder copies
         // 10-bit bitmaps (RGBA_1010102) as if they were rgba8888, garbling colors. Decode on a
         // dedicated pool - the fetch callback threads are shared with video streaming. On any
@@ -102,13 +141,21 @@ class RemoteImagesImpl(context: Context) : RemoteImageApi {
         if (!preferEncoded && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
           decodeExecutor.execute {
             val res = if (signal.isCanceled) null else try {
-              val bitmap = ImageDecoder.createSource(NativeBuffer.wrap(buffer.pointer, buffer.offset)).decodeBitmap()
               // The embedded preview a raw decodes to has no orientation, so read the container's.
               val orientation = if (isRawMime(contentType)) {
                 readRawOrientation(NativeBuffer.wrap(buffer.pointer, buffer.offset), buffer.offset)
               } else {
                 ExifInterface.ORIENTATION_NORMAL
               }
+              val target = when (orientation) {
+                ExifInterface.ORIENTATION_TRANSPOSE,
+                ExifInterface.ORIENTATION_ROTATE_90,
+                ExifInterface.ORIENTATION_TRANSVERSE,
+                ExifInterface.ORIENTATION_ROTATE_270 -> Size(height?.toInt() ?: 0, width?.toInt() ?: 0)
+                else -> Size(width?.toInt() ?: 0, height?.toInt() ?: 0)
+              }
+              val source = ImageDecoder.createSource(NativeBuffer.wrap(buffer.pointer, buffer.offset))
+              val bitmap = source.decodeBitmap(target, exactSize = true)
               if (orientation == ExifInterface.ORIENTATION_NORMAL || orientation == ExifInterface.ORIENTATION_UNDEFINED) {
                 bitmap.toNativeBuffer()
               } else {
@@ -261,7 +308,11 @@ private class CronetImageFetcher : ImageFetcher {
       requestBuilder.addHeader(key, value)
     }
     val request = requestBuilder.build()
-    signal.setOnCancelListener(request::cancel)
+    // Cronet's disk cache can still use a read buffer after onCanceled, so only cancel between reads.
+    signal.setOnCancelListener {
+      callback.requestCancel = true
+      if (!callback.receivingResponse) request.cancel()
+    }
     request.start()
   }
 
@@ -317,12 +368,16 @@ private class CronetImageFetcher : ImageFetcher {
   ) : UrlRequest.Callback() {
     private var buffer: NativeByteBuffer? = null
     private var error: Exception? = null
+    @Volatile var receivingResponse = false
+    @Volatile var requestCancel = false
 
     override fun onRedirectReceived(request: UrlRequest, info: UrlResponseInfo, newUrl: String) {
       request.followRedirect()
     }
 
     override fun onResponseStarted(request: UrlRequest, info: UrlResponseInfo) {
+      receivingResponse = true
+      if (requestCancel) return request.cancel()
       if (info.httpStatusCode !in 200..299) {
         error = IOException("HTTP ${info.httpStatusCode}: ${info.httpStatusText}")
         return request.cancel()
@@ -350,6 +405,7 @@ private class CronetImageFetcher : ImageFetcher {
       info: UrlResponseInfo,
       byteBuffer: ByteBuffer
     ) {
+      if (requestCancel) return request.cancel()
       try {
         // Always pass a fresh wrap so byteBuffer.position() represents only the
         // bytes Cronet wrote in this iteration. Reusing the caller-supplied

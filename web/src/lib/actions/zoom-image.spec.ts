@@ -1,4 +1,4 @@
-import { zoomImageAction } from '$lib/actions/zoom-image';
+import { zoomImageAction } from '#lib/actions/zoom-image.ts';
 
 const { createZoomImageWheelMock } = vi.hoisted(() => ({
   createZoomImageWheelMock: vi.fn(),
@@ -8,7 +8,7 @@ vi.mock('@zoom-image/core', () => ({
   createZoomImageWheel: createZoomImageWheelMock,
 }));
 
-vi.mock('$lib/managers/asset-viewer-manager.svelte', () => ({
+vi.mock('#lib/managers/asset-viewer-manager.svelte.ts', () => ({
   assetViewerManager: {
     zoomState: {},
     on: vi.fn(() => vi.fn()),

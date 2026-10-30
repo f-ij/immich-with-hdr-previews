@@ -1,4 +1,4 @@
-import { buildHdrOutputCicp } from 'src/utils/hdr-preview/sharp-decoded';
+import { buildHdrOutputCicp } from 'src/utils/hdr-preview/sharp-decoded.js';
 import { describe, expect, it } from 'vitest';
 
 describe('Sharp-decoded HDR AVIF previews', () => {

@@ -8,11 +8,14 @@ import {
 } from '@immich/plugin-sdk';
 import { HttpException, UnauthorizedException } from '@nestjs/common';
 import { join } from 'node:path';
-import { DummyValue, OnEvent, OnJob } from 'src/decorators';
-import { AlbumsAddAssetsDto, CreateAlbumDto, GetAlbumsDto } from 'src/dtos/album.dto';
-import { BulkIdsDto } from 'src/dtos/asset-ids.response.dto';
-import { AuthDto } from 'src/dtos/auth.dto';
-import { PluginManifestDto } from 'src/dtos/plugin-manifest.dto';
+import type { ArgOf } from 'src/repositories/event.repository.js';
+import type { JobOf } from 'src/types.js';
+import { DummyValue, OnEvent, OnJob } from 'src/decorators.js';
+import { AlbumsAddAssetsDto, CreateAlbumDto, GetAlbumsDto } from 'src/dtos/album.dto.js';
+import { BulkIdsDto } from 'src/dtos/asset-ids.response.dto.js';
+import { AuthDto } from 'src/dtos/auth.dto.js';
+import { PluginManifestDto } from 'src/dtos/plugin-manifest.dto.js';
+import { TagBulkAssetsDto } from 'src/dtos/tag.dto.js';
 import {
   BootstrapEventPriority,
   DatabaseLock,
@@ -21,13 +24,14 @@ import {
   JobName,
   JobStatus,
   QueueName,
+  WorkflowResult,
   WorkflowType,
-} from 'src/enum';
-import { ArgOf } from 'src/repositories/event.repository';
-import { AlbumService } from 'src/services/album.service';
-import { AssetService } from 'src/services/asset.service';
-import { BaseService } from 'src/services/base.service';
-import { JobOf } from 'src/types';
+} from 'src/enum.js';
+import { AlbumService } from 'src/services/album.service.js';
+import { AssetService } from 'src/services/asset.service.js';
+import { BaseService } from 'src/services/base.service.js';
+import { TagService } from 'src/services/tag.service.js';
+import { isAllowedHost } from 'src/utils/workflow.js';
 
 const dummy = () => {
   throw new Error(
@@ -36,7 +40,7 @@ const dummy = () => {
 };
 
 type ExecuteOptions<T extends WorkflowType> = {
-  read: (type: T) => Promise<{ authUserId: string; data: WorkflowEventData<T> }>;
+  read: (type: T) => Promise<{ authUserId: string; data: WorkflowEventData<T>; entityId?: string }>;
   write: (auth: AuthDto, changes: WorkflowChanges<T>) => Promise<void>;
 };
 
@@ -69,6 +73,7 @@ export class WorkflowExecutionService extends BaseService {
     this.jwtSecret = this.cryptoRepository.randomBytesAsText(32);
 
     const albumService = BaseService.create(AlbumService, this);
+    const tagService = BaseService.create(TagService, this);
 
     const searchAlbums = this.wrap<[dto: GetAlbumsDto]>((authDto, ctx, args) => albumService.getAll(authDto, ...args));
     const createAlbum = this.wrap<[dto: CreateAlbumDto]>((authDto, ctx, args) => albumService.create(authDto, ...args));
@@ -89,23 +94,21 @@ export class WorkflowExecutionService extends BaseService {
       ]
     >(async (authDto, context, args) => {
       const hostname = new URL(args[0]).hostname;
-
-      for (const pattern of context.allowedHosts) {
-        const regex = new RegExp(pattern.replaceAll('.', String.raw`\.`).replaceAll('*', '.*'));
-        if (regex.test(hostname)) {
-          // eslint-disable-next-line unicorn/no-invalid-argument-count
-          const res = await fetch(...args);
-
-          return {
-            ok: res.ok,
-            status: res.status,
-            body: await res.text(),
-          };
-        }
+      if (!isAllowedHost(hostname, context.allowedHosts)) {
+        throw new Error('Hostname did not match any listed in methods[].allowedHosts in the plugin manifest');
       }
 
-      throw new Error('Hostname did not match any listed in methods[].allowedHosts in the plugin manifest');
+      const res = await fetch(...args);
+
+      return {
+        ok: res.ok,
+        status: res.status,
+        body: await res.text(),
+      };
     });
+    const bulkTagAssets = this.wrap<[dto: TagBulkAssetsDto]>((authDto, ctx, args) =>
+      tagService.bulkTagAssets(authDto, ...args),
+    );
 
     const functions = {
       searchAlbums,
@@ -113,6 +116,7 @@ export class WorkflowExecutionService extends BaseService {
       addAssetsToAlbum,
       addAssetsToAlbums,
       httpRequest,
+      bulkTagAssets,
     };
 
     const stubs: typeof functions = {
@@ -121,6 +125,7 @@ export class WorkflowExecutionService extends BaseService {
       addAssetsToAlbum: dummy,
       addAssetsToAlbums: dummy,
       httpRequest: dummy,
+      bulkTagAssets: dummy,
     };
 
     const plugins = await this.pluginRepository.getForLoad();
@@ -138,15 +143,17 @@ export class WorkflowExecutionService extends BaseService {
       }
 
       const isMethodWithFunction = methods.some(({ hostFunctions }) => hostFunctions);
-      if (isMethodWithFunction) {
-        const label = `${name}@${version}/worker`;
-        const key = this.getPluginKey({ id, hostFunctions: true });
-        try {
-          await this.pluginRepository.load({ key, label, wasmBytes }, { runInWorker: true, functions });
-          this.logger.log(`Loaded plugin with host functions: ${label}`);
-        } catch (error) {
-          this.logger.error(`Unable to load plugin with host functions ${label} (${id})`, error);
-        }
+      if (!isMethodWithFunction) {
+        continue;
+      }
+
+      const label = `${name}@${version}/worker`;
+      const key = this.getPluginKey({ id, hostFunctions: true });
+      try {
+        await this.pluginRepository.load({ key, label, wasmBytes }, { runInWorker: true, functions });
+        this.logger.log(`Loaded plugin with host functions: ${label}`);
+      } catch (error) {
+        this.logger.error(`Unable to load plugin with host functions ${label} (${id})`, error);
       }
     }
   }
@@ -309,6 +316,16 @@ export class WorkflowExecutionService extends BaseService {
     return this.onAssetTrigger({ userId, assetId, trigger: WorkflowTrigger.AssetMetadataExtraction });
   }
 
+  @OnEvent({ name: 'AssetOcrExtracted' })
+  onAssetOcrExtracted({ userId, assetId }: ArgOf<'AssetOcrExtracted'>) {
+    return this.onAssetTrigger({ userId, assetId, trigger: WorkflowTrigger.AssetOcrExtraction });
+  }
+
+  @OnEvent({ name: 'AssetTag' })
+  onAssetTagged({ assetId, userId }: ArgOf<'AssetTag'>) {
+    return this.onAssetTrigger({ userId, assetId, trigger: WorkflowTrigger.AssetTagged });
+  }
+
   private async onAssetTrigger({ userId, assetId, trigger }: AssetTrigger) {
     const items = await this.workflowRepository.search({ userId, trigger });
     await this.jobRepository.queueAll(
@@ -320,7 +337,7 @@ export class WorkflowExecutionService extends BaseService {
   }
 
   @OnJob({ name: JobName.WorkflowAssetTrigger, queue: QueueName.Workflow })
-  handleAssetTrigger({ workflowId, assetId }: JobOf<JobName.WorkflowAssetTrigger>) {
+  handleAssetTrigger({ workflowId, assetId, trigger }: JobOf<JobName.WorkflowAssetTrigger>) {
     return this.execute(workflowId, (type) => {
       const assetService = BaseService.create(AssetService, this);
 
@@ -328,10 +345,11 @@ export class WorkflowExecutionService extends BaseService {
         case WorkflowType.AssetV1: {
           return {
             read: async () => {
-              const asset = await this.workflowRepository.getForAssetV1(assetId);
+              const asset = await this.workflowRepository.getForAssetV1(assetId, trigger);
               return {
                 data: { asset } as any,
                 authUserId: asset.ownerId,
+                entityId: asset.id,
               };
             },
             write: async (auth, changes) => {
@@ -399,11 +417,13 @@ export class WorkflowExecutionService extends BaseService {
       return;
     }
 
-    try {
-      const { read, write } = handler;
-      const readResult = await read(type);
-      let data = readResult.data;
-      for (const step of workflow.steps) {
+    const { read, write } = handler;
+    const readResult = await read(type);
+    let data = readResult.data;
+    const runId = crypto.randomUUID();
+
+    for (const step of workflow.steps) {
+      try {
         const payload: WorkflowEventPayload<typeof type> = {
           trigger: workflow.trigger,
           type,
@@ -454,14 +474,45 @@ export class WorkflowExecutionService extends BaseService {
 
         const shouldContinue = result?.workflow?.continue ?? true;
         if (!shouldContinue) {
-          break;
-        }
-      }
+          if (workflow.logging) {
+            await this.workflowRepository.log({
+              workflowId,
+              result: WorkflowResult.Halted,
+              workflowStepId: step.id,
+              triggerDataId: readResult.entityId,
+              runId,
+            });
+          }
 
-      this.logger.debug(`Workflow ${workflowId} executed successfully`);
-    } catch (error) {
-      this.logger.error(`Error executing workflow ${workflowId}:`, error);
-      return JobStatus.Failed;
+          this.logger.debug(`Workflow ${workflowId} run ${runId} stopped on step ${step.id}`);
+          return;
+        }
+      } catch (error) {
+        this.logger.error(`Error executing workflow ${workflowId} run ${runId}:`, error);
+
+        if (workflow.logging) {
+          await this.workflowRepository.log({
+            workflowId,
+            result: WorkflowResult.Error,
+            workflowStepId: step.id,
+            triggerDataId: readResult.entityId,
+            runId,
+          });
+        }
+
+        return JobStatus.Failed;
+      }
     }
+
+    if (workflow.logging) {
+      await this.workflowRepository.log({
+        workflowId,
+        result: WorkflowResult.Completed,
+        triggerDataId: readResult.entityId,
+        runId,
+      });
+    }
+
+    this.logger.debug(`Workflow ${workflowId} run ${runId} executed successfully`);
   }
 }

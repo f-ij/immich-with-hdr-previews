@@ -1,6 +1,6 @@
-import { ColorTransfer } from 'src/enum';
-import { VideoStreamInfo } from 'src/types';
-import { hasHdrTransferMetadata } from 'src/utils/hdr-preview/probe';
+import { ColorTransfer } from 'src/enum.js';
+import { VideoStreamInfo } from 'src/types.js';
+import { hasHdrTransferMetadata } from 'src/utils/hdr-preview/probe.js';
 
 const stream = (colorTransfer: ColorTransfer) => ({ colorTransfer }) as VideoStreamInfo;
 

@@ -1,4 +1,4 @@
-import { swipe } from '$lib/actions/swipe';
+import { swipe } from '#lib/actions/swipe.ts';
 
 const dispatchPointer = (node: HTMLElement, type: string, pointerId: number, clientX: number, clientY: number) => {
   node.dispatchEvent(

@@ -1,4 +1,4 @@
-import { isIphoneSafariTab } from '$lib/utils/ios-safari-scroll';
+import { isIphoneSafariTab } from '#lib/utils/ios-safari-scroll.ts';
 
 const iphoneSafari = {
   userAgent:

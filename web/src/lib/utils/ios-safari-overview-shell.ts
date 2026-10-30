@@ -3,7 +3,7 @@ import {
   getIphoneSafariEnvironment,
   isIphoneSafariTab,
   type IphoneSafariEnvironment,
-} from '$lib/utils/ios-safari-scroll';
+} from '#lib/utils/ios-safari-scroll.ts';
 
 const OVERVIEW_SHELL_CLASS = 'ios-safari-overview-shell';
 const OVERVIEW_SHELL_ATTRIBUTE = 'data-ios-safari-overview-shell';

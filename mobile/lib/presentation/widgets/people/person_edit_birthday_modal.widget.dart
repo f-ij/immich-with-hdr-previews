@@ -2,24 +2,25 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:immich_mobile/data/store.dart';
 import 'package:immich_mobile/domain/models/person.model.dart';
 import 'package:immich_mobile/extensions/build_context_extensions.dart';
-import 'package:immich_mobile/extensions/translate_extensions.dart';
-import 'package:immich_mobile/providers/infrastructure/people.provider.dart';
+import 'package:immich_mobile/extensions/datetime_extensions.dart';
+import 'package:immich_mobile/generated/translations.g.dart';
 import 'package:immich_mobile/utils/debug_print.dart';
 import 'package:immich_mobile/widgets/common/immich_toast.dart';
 import 'package:scroll_date_picker/scroll_date_picker.dart';
 
-class DriftPersonBirthdayEditForm extends ConsumerStatefulWidget {
-  final DriftPerson person;
+class PersonBirthdayEditForm extends ConsumerStatefulWidget {
+  final Person person;
 
-  const DriftPersonBirthdayEditForm({super.key, required this.person});
+  const PersonBirthdayEditForm({super.key, required this.person});
 
   @override
-  ConsumerState<DriftPersonBirthdayEditForm> createState() => _DriftPersonNameEditFormState();
+  ConsumerState<PersonBirthdayEditForm> createState() => _PersonBirthdayEditFormState();
 }
 
-class _DriftPersonNameEditFormState extends ConsumerState<DriftPersonBirthdayEditForm> {
+class _PersonBirthdayEditFormState extends ConsumerState<PersonBirthdayEditForm> {
   late DateTime _selectedDate;
 
   @override
@@ -30,22 +31,21 @@ class _DriftPersonNameEditFormState extends ConsumerState<DriftPersonBirthdayEdi
 
   Future<void> saveBirthday() async {
     try {
-      final result = await ref.read(driftPeopleServiceProvider).updateBrithday(widget.person.id, _selectedDate);
+      final result = await ref.read(Store.people).updateBirthday(widget.person.id, _selectedDate);
 
-      if (result != 0) {
-        ref.invalidate(driftGetAllPeopleProvider);
+      if (result != 0 && mounted) {
         context.pop<DateTime>(_selectedDate);
       }
     } catch (error) {
       dPrint(() => 'Error updating birthday: $error');
 
-      if (!context.mounted) {
+      if (!mounted) {
         return;
       }
 
       ImmichToast.show(
         context: context,
-        msg: 'scaffold_body_error_occurred'.t(context: context),
+        msg: context.t.scaffold_body_error_occurred,
         gravity: ToastGravity.BOTTOM,
         toastType: ToastType.error,
       );
@@ -55,17 +55,14 @@ class _DriftPersonNameEditFormState extends ConsumerState<DriftPersonBirthdayEdi
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(
-        "edit_birthday".t(context: context),
-        style: const TextStyle(fontWeight: FontWeight.bold),
-      ),
+      title: Text(context.t.edit_birthday, style: const TextStyle(fontWeight: FontWeight.bold)),
       content: SizedBox(
         width: double.maxFinite,
         height: 300,
         child: ClipRRect(
           borderRadius: const BorderRadius.all(Radius.circular(16.0)),
           child: ScrollDatePicker(
-            viewType: datePickerColumnOrder(DateFormat.yMd(context.locale.toLanguageTag()).pattern),
+            viewType: datePickerColumnOrder(DateFormat.yMd(resolvedDateTimeLocale()).pattern),
             options: DatePickerOptions(
               backgroundColor: context.colorScheme.surfaceContainerHigh,
               itemExtent: 50,
@@ -104,16 +101,16 @@ class _DriftPersonNameEditFormState extends ConsumerState<DriftPersonBirthdayEdi
         TextButton(
           onPressed: () => context.pop(null),
           child: Text(
-            "cancel",
+            context.t.cancel,
             style: TextStyle(color: Colors.red[300], fontWeight: FontWeight.bold),
-          ).tr(),
+          ),
         ),
         TextButton(
           onPressed: () => saveBirthday(),
           child: Text(
-            "save",
+            context.t.save,
             style: TextStyle(color: context.primaryColor, fontWeight: FontWeight.bold),
-          ).tr(),
+          ),
         ),
       ],
     );

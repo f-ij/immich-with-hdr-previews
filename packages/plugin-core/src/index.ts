@@ -3,13 +3,18 @@ import { AssetVisibility } from '@immich/sdk';
 import type { Manifest } from '../dist/index.d.ts';
 
 type MatchValueConfig = {
-  pattern: string;
-  matchType?: 'contains' | 'exact' | 'regex' | 'startsWith';
+  pattern?: string;
+  matchType?: 'contains' | 'exact' | 'regex' | 'startsWith' | 'missing' | 'present';
   caseSensitive?: boolean;
 };
 
-const matchValueResult = (value: string, config: MatchValueConfig) => {
-  const { pattern, matchType = 'contains', caseSensitive = false } = config;
+const matchValueResult = (value: string | null, config: MatchValueConfig) => {
+  const { pattern = '', matchType = 'contains', caseSensitive = false } = config;
+
+  if (value === null) {
+    return { workflow: { continue: matchType === 'missing' } };
+  }
+
   const searchName = caseSensitive ? value : value.toLowerCase();
   const searchPattern = caseSensitive ? pattern : pattern.toLowerCase();
 
@@ -32,6 +37,15 @@ const matchValueResult = (value: string, config: MatchValueConfig) => {
       return { workflow: { continue: regex.test(value) } };
     }
 
+    case 'present': {
+      return { workflow: { continue: true } };
+    }
+
+    case 'missing': {
+      // value is not null at this point
+      return { workflow: { continue: false } };
+    }
+
     default: {
       return {};
     }
@@ -39,6 +53,11 @@ const matchValueResult = (value: string, config: MatchValueConfig) => {
 };
 
 const methods = wrapper<Manifest>({
+  assetAddTags: ({ config, data, functions }) => {
+    functions.bulkTagAssets({ assetIds: [data.asset.id], tagIds: config.tags });
+    return {};
+  },
+
   assetAddToAlbums: ({ config, data, functions }) => {
     const assetId = data.asset.id;
 
@@ -130,11 +149,10 @@ const methods = wrapper<Manifest>({
   },
 
   assetExifFilter: ({ config, data }) => {
-    if (!data.asset.exifInfo || data.asset.exifInfo[config.property] === null) {
-      return { workflow: { continue: false } };
-    }
+    let value = data.asset.exifInfo?.[config.property];
 
-    return matchValueResult(String(data.asset.exifInfo[config.property]), config);
+    // Empty EXIF value is treated as missing to mirror behavior of the web UI
+    return matchValueResult(value === null || value === undefined || value === '' ? null : String(value), config);
   },
 
   assetDateFilter: ({ config, data }) => {
@@ -176,6 +194,31 @@ const methods = wrapper<Manifest>({
     return { workflow: { continue: hasTimeZone === needsTimeZone } };
   },
 
+  assetOcrFilter: ({ config, data }) => {
+    const entries = (data.asset.ocr ?? []).filter((ocr) => ocr.textScore >= (config.minScore ?? 0));
+    const texts = config.matchScope === 'full' ? [entries.map((ocr) => ocr.text).join(' ')] : entries.map((ocr) => ocr.text);
+    const matched = texts.some((t) => matchValueResult(t, config).workflow?.continue);
+    return { workflow: { continue: matched } };
+  },
+
+  assetTagFilter: ({ config, data }) => {
+    const assetTags = data.asset.tags.map((tag) => tag.id);
+
+    for (const tag of config.tags) {
+      if (assetTags.includes(tag)) {
+        if (config.matching === 'any') {
+          return { workflow: { continue: true } };
+        } else if (config.matching === 'none') {
+          return { workflow: { continue: false } };
+        }
+      } else if (config.matching === 'all') {
+        return { workflow: { continue: false } };
+      }
+    }
+
+    return { workflow: { continue: config.matching !== 'any' } };
+  },
+
   assetTypeFilter: ({ config, data }) => {
     return { workflow: { continue: config.allowedTypes.includes(data.asset.type) } };
   },
@@ -208,6 +251,7 @@ const methods = wrapper<Manifest>({
 });
 
 const {
+  assetAddTags,
   assetAddToAlbums,
   assetArchive,
   assetFavorite,
@@ -217,6 +261,8 @@ const {
   assetDateFilter,
   assetLock,
   assetMissingTimeZoneFilter,
+  assetOcrFilter,
+  assetTagFilter,
   assetTypeFilter,
   assetVisibility,
   webhook,
@@ -226,6 +272,7 @@ const {
 } = methods;
 
 export {
+  assetAddTags,
   assetAddToAlbums,
   assetArchive,
   assetFavorite,
@@ -235,6 +282,8 @@ export {
   assetDateFilter,
   assetLock,
   assetMissingTimeZoneFilter,
+  assetOcrFilter,
+  assetTagFilter,
   assetTypeFilter,
   assetVisibility,
   webhook,

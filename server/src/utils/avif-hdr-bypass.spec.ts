@@ -1,4 +1,4 @@
-import { buildFfmpegResizeInputArgs, type AvifTileGrid } from 'src/utils/avif-hdr-bypass';
+import { buildFfmpegResizeInputArgs, type AvifTileGrid } from 'src/utils/avif-hdr-bypass.js';
 import { describe, expect, it } from 'vitest';
 
 describe('AVIF HDR bypass', () => {

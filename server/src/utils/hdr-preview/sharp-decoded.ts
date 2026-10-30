@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import sharp from 'sharp';
-import { HdrSourcePreviewOptions } from 'src/utils/hdr-preview/types';
+import { HdrSourcePreviewOptions } from 'src/utils/hdr-preview/types.js';
 
 const execFile = promisify(execFileCallback);
 

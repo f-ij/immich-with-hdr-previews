@@ -3,7 +3,7 @@ import {
   IPHONE_SAFARI_VIEWER_SCROLL_CLASS,
   isIphoneSafariTab,
   type IphoneSafariEnvironment,
-} from '$lib/utils/ios-safari-scroll';
+} from '#lib/utils/ios-safari-scroll.ts';
 
 const VIEWER_SCROLL_ROOT_ATTRIBUTE = 'data-ios-safari-viewer-scroll-root';
 const PORTRAIT_SCROLL_RUNWAY_POSITION = 128;

@@ -1,4 +1,4 @@
-import { enableIphoneSafariOverviewShell } from '$lib/utils/ios-safari-overview-shell';
+import { enableIphoneSafariOverviewShell } from '#lib/utils/ios-safari-overview-shell.ts';
 
 const iphoneSafari = {
   userAgent:

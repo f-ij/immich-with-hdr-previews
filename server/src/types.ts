@@ -1,12 +1,13 @@
 import { WorkflowTrigger } from '@immich/plugin-sdk';
 import { ShallowDehydrateObject } from 'kysely';
-import { SystemConfig } from 'src/config';
-import { VECTOR_EXTENSIONS } from 'src/constants';
-import { AssetFile } from 'src/database';
-import { UploadFieldName } from 'src/dtos/asset-media.dto';
-import { AuthDto } from 'src/dtos/auth.dto';
-import { AssetEditActionItem } from 'src/dtos/editing.dto';
-import { SetMaintenanceModeDto } from 'src/dtos/maintenance.dto';
+import { Mocked } from 'vitest';
+import { VECTOR_EXTENSIONS } from 'src/constants.js';
+import { AssetFile } from 'src/database.js';
+import { UploadFieldName } from 'src/dtos/asset-media.dto.js';
+import { AuthDto } from 'src/dtos/auth.dto.js';
+import { SystemConfig } from 'src/dtos/config.dto.js';
+import { AssetEditActionItem } from 'src/dtos/editing.dto.js';
+import { SetMaintenanceModeDto } from 'src/dtos/maintenance.dto.js';
 import {
   AacProfile,
   AssetOrder,
@@ -24,38 +25,33 @@ import {
   IntegrityReport,
   JobName,
   MemoryType,
+  PersonUpdateStrategy,
   QueueName,
   StorageFolder,
   SyncEntityType,
   SystemMetadataKey,
   TranscodeTarget,
   UserMetadataKey,
-  WorkflowType,
-} from 'src/enum';
+} from 'src/enum.js';
 
 export type DeepPartial<T> = T extends Date
   ? T
-  : T extends Record<string, unknown>
-    ? { [K in keyof T]?: DeepPartial<T[K]> }
-    : T extends Array<infer R>
-      ? DeepPartial<R>[]
+  : T extends Array<infer R>
+    ? DeepPartial<R>[]
+    : T extends object
+      ? { [K in keyof T]?: DeepPartial<T[K]> }
       : T;
 
 export type RepositoryInterface<T extends object> = Pick<T, keyof T>;
 
-export type FullsizeImageOptions = {
-  format: ImageFormat;
-  quality: number;
-  enabled: boolean;
-  progressive?: boolean;
-};
-
 export type ImageOptions = {
   format: ImageFormat;
   quality: number;
-  size: number;
   progressive?: boolean;
+  decodingTier: 0 | 1 | 2 | 3 | 4;
 };
+
+export type FullsizeImageOptions = ImageOptions & { enabled: boolean };
 
 export type RawImageInfo = {
   width: number;
@@ -63,32 +59,36 @@ export type RawImageInfo = {
   channels: 1 | 2 | 3 | 4;
 };
 
-type DecodeImageOptions = {
-  colorspace: string;
-  processInvalidImages: boolean;
-  raw?: RawImageInfo;
-  edits?: AssetEditActionItem[];
+export type Bitmap = {
+  data: Buffer;
+  info: RawImageInfo;
+};
+
+type HdrImageOptions = {
   highDynamicRange?: boolean;
   hdrSourcePath?: string;
   hdrSourceMimeType?: string;
   avifSourcePath?: string;
 };
 
-export interface DecodeToBufferOptions extends DecodeImageOptions {
+type ImageColorOptions = {
+  colorspace: string;
+  processInvalidImages: boolean;
+};
+
+export interface DecodeToBufferOptions extends ImageColorOptions {
   size?: number;
   orientation?: ExifOrientation;
 }
 
-export type GenerateThumbnailOptions = Pick<ImageOptions, 'format' | 'quality' | 'progressive'> & DecodeToBufferOptions;
-export type GenerateThumbhashOptions = DecodeImageOptions;
+export type TransformOptions = {
+  size?: number;
+  fit?: 'inside' | 'outside';
+  edits?: AssetEditActionItem[];
+};
 
-export interface GenerateThumbnailsOptions {
-  colorspace: string;
-  preview?: ImageOptions;
-  processInvalidImages: boolean;
-  thumbhash?: boolean;
-  thumbnail?: ImageOptions;
-}
+export type GenerateThumbnailOptions = ImageOptions & ImageColorOptions & TransformOptions & HdrImageOptions;
+export type GenerateThumbhashOptions = ImageColorOptions & Pick<TransformOptions, 'edits'>;
 
 export interface VideoStreamInfo {
   index: number;
@@ -146,10 +146,6 @@ export interface ImageDimensions {
   height: number;
 }
 
-export interface InputDimensions extends ImageDimensions {
-  inputPath: string;
-}
-
 export interface VideoInfo {
   format: VideoFormat;
   videoStreams: VideoStreamInfo[];
@@ -192,11 +188,6 @@ export interface BitrateDistribution {
   unit: string;
 }
 
-export interface ImageBuffer {
-  data: Buffer;
-  info: RawImageInfo;
-}
-
 export interface VideoCodecSWConfig {
   getCommand(
     target: TranscodeTarget,
@@ -237,6 +228,11 @@ export interface IDelayedJob extends IBaseJob {
 }
 
 export type JobSource = 'upload' | 'sidecar-write' | 'copy' | 'edit';
+export interface IPersonJob {
+  ownerId: string;
+  personGroupId: string;
+}
+
 export interface IEntityJob extends IBaseJob {
   id: string;
   source?: JobSource;
@@ -263,16 +259,8 @@ export interface ILibraryBulkIdsJob {
   totalAssets: number;
 }
 
-export interface IBulkEntityJob {
-  ids: string[];
-}
-
 export interface IDeleteFilesJob extends IBaseJob {
   files: Array<string | null | undefined>;
-}
-
-export interface ISidecarWriteJob extends IEntityJob {
-  tags?: true;
 }
 
 export interface IDeferrableJob extends IEntityJob {
@@ -310,12 +298,6 @@ export interface INotifyAlbumUpdateJob extends IEntityJob, IDelayedJob {
   recipientId: string;
 }
 
-export type IWorkflowJob<T extends WorkflowType = WorkflowType> = {
-  id: string;
-  trigger: WorkflowTrigger;
-  type: T;
-};
-
 export interface IIntegrityJob {
   refreshOnly?: boolean;
 }
@@ -352,13 +334,16 @@ export interface IIntegrityPathWithChecksumJob {
   items: { path: string; reportId: string | null; checksum?: string | null }[];
 }
 
+export interface IFacialRecognitionQueueAll extends INightlyJob {
+  clusterGroupId?: string;
+}
+
 export interface JobCounts {
   active: number;
   completed: number;
   failed: number;
   delayed: number;
   waiting: number;
-  paused: number;
 }
 
 export type JobItem =
@@ -389,7 +374,7 @@ export type JobItem =
   // Migration
   | { name: JobName.FileMigrationQueueAll; data?: IBaseJob }
   | { name: JobName.AssetFileMigration; data: IEntityJob }
-  | { name: JobName.PersonFileMigration; data: IEntityJob }
+  | { name: JobName.PersonFileMigration; data: IPersonJob }
 
   // Metadata Extraction
   | { name: JobName.AssetExtractMetadataQueueAll; data: IBaseJob }
@@ -406,9 +391,9 @@ export type JobItem =
   // Facial Recognition
   | { name: JobName.AssetDetectFacesQueueAll; data: IBaseJob }
   | { name: JobName.AssetDetectFaces; data: IEntityJob }
-  | { name: JobName.FacialRecognitionQueueAll; data: INightlyJob }
+  | { name: JobName.FacialRecognitionQueueAll; data: IFacialRecognitionQueueAll }
   | { name: JobName.FacialRecognition; data: IDeferrableJob }
-  | { name: JobName.PersonGenerateThumbnail; data: IEntityJob }
+  | { name: JobName.PersonGenerateThumbnail; data: IPersonJob }
 
   // Smart Search
   | { name: JobName.SmartSearchQueueAll; data: IBaseJob }
@@ -428,6 +413,7 @@ export type JobItem =
 
   // Cleanup
   | { name: JobName.SessionCleanup; data?: IBaseJob }
+  | { name: JobName.AuthChallengeCleanup; data?: IBaseJob }
   | { name: JobName.HlsSessionCleanup; data?: IBaseJob }
 
   // Tags
@@ -462,7 +448,7 @@ export type JobItem =
   | { name: JobName.Ocr; data: IEntityJob }
 
   // Workflow
-  | { name: JobName.WorkflowAssetTrigger; data: { workflowId: string; assetId: string } }
+  | { name: JobName.WorkflowAssetTrigger; data: { workflowId: string; assetId: string; trigger: WorkflowTrigger } }
 
   // Integrity
   | { name: JobName.IntegrityUntrackedFilesQueueAll; data?: IIntegrityJob }
@@ -549,9 +535,11 @@ export type StorageAsset = {
 };
 
 export type OnThisDayData = { year: number };
+export type BirthdayData = { personId: string; personName: string; year: number };
 
 export interface MemoryData {
   [MemoryType.OnThisDay]: OnThisDayData;
+  [MemoryType.Birthday]: BirthdayData;
 }
 
 export type VersionCheckMetadata = { checkedAt: string; releaseVersion: string };
@@ -589,11 +577,13 @@ export type UserPreferences = {
   memories: {
     enabled: boolean;
     duration: number;
+    sidebarWeb: boolean;
   };
   people: {
     enabled: boolean;
     sidebarWeb: boolean;
     minimumFaces: number;
+    updateStrategy: PersonUpdateStrategy;
   };
   ratings: {
     enabled: boolean;
@@ -652,7 +642,10 @@ export type JSONSchemaProperty = {
   required?: string[];
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-export interface ClassConstructor<T = any> extends Function {
-  new (...args: any[]): T;
-}
+export type ClassConstructor<T> = T extends new (...args: infer R) => infer L
+  ? new (...args: R) => L
+  : new (...args: any[]) => unknown;
+
+export type ClassConstructorsToInstances<T extends readonly ClassConstructor<unknown>[]> = {
+  [K in keyof T]: InstanceType<T[K]> | Mocked<InstanceType<T[K]>>;
+};

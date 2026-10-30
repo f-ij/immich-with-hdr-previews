@@ -1,4 +1,4 @@
-import { enableIphoneSafariViewerScroll } from '$lib/utils/ios-safari-viewer-scroll';
+import { enableIphoneSafariViewerScroll } from '#lib/utils/ios-safari-viewer-scroll.ts';
 
 const iphoneSafari = {
   userAgent:

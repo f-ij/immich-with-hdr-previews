@@ -1,4 +1,4 @@
-import { getHdrPreviewSourceMimeType } from 'src/utils/hdr-preview';
+import { getHdrPreviewSourceMimeType } from 'src/utils/hdr-preview/index.js';
 import { describe, expect, it } from 'vitest';
 
 describe('HDR preview source routing', () => {

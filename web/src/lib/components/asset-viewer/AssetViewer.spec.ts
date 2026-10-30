@@ -1,16 +1,18 @@
+import { getAnimateMock } from '#lib/__mocks__/animate.mock.ts';
+import { getResizeObserverMock } from '#lib/__mocks__/resize-observer.mock.ts';
+import { authManager } from '#lib/managers/auth-manager.svelte.ts';
+import { queryClient } from '#lib/queries/client.ts';
+import { getPublicConfigQuery } from '#lib/queries/config-public.query.ts';
+import { SlideshowState, slideshowStore } from '#lib/stores/slideshow.store.ts';
+import { renderWithTooltips } from '#tests/helpers';
 import { AssetTypeEnum, updateAsset } from '@immich/sdk';
 import { fireEvent, waitFor } from '@testing-library/svelte';
-import { getAnimateMock } from '$lib/__mocks__/animate.mock';
-import { getResizeObserverMock } from '$lib/__mocks__/resize-observer.mock';
-import { authManager } from '$lib/managers/auth-manager.svelte';
-import { SlideshowState, slideshowStore } from '$lib/stores/slideshow.store';
-import { renderWithTooltips } from '$tests/helpers';
-import { assetFactory } from '@test-data/factories/asset-factory';
-import { preferencesFactory } from '@test-data/factories/preferences-factory';
-import { userAdminFactory } from '@test-data/factories/user-factory';
+import { assetFactory } from '#test-data/factories/asset-factory';
+import { preferencesFactory } from '#test-data/factories/preferences-factory';
+import { userAdminFactory } from '#test-data/factories/user-factory';
 import AssetViewer from './AssetViewer.svelte';
 
-vi.mock('$lib/managers/feature-flags-manager.svelte', () => ({
+vi.mock('#lib/managers/feature-flags-manager.svelte.js', () => ({
   featureFlagsManager: {
     init: vi.fn(),
     loadFeatureFlags: vi.fn(),
@@ -18,7 +20,7 @@ vi.mock('$lib/managers/feature-flags-manager.svelte', () => ({
   } as never,
 }));
 
-vi.mock('$lib/stores/ocr.svelte', () => ({
+vi.mock('#lib/stores/ocr.svelte.js', () => ({
   ocrManager: {
     clear: vi.fn(),
     getAssetOcr: vi.fn(),
@@ -107,6 +109,9 @@ describe('AssetViewer', () => {
   it('toggles both video bars only when the video surface is clicked', async () => {
     vi.useFakeTimers();
     const asset = assetFactory.build({ type: AssetTypeEnum.Video, hasMetadata: true });
+    queryClient.setQueryData(getPublicConfigQuery().queryKey, {
+      ffmpeg: { realtime: { enabled: false } },
+    } as never);
     const { getByLabelText, getByTestId } = renderWithTooltips(AssetViewer, {
       cursor: { current: asset },
       showNavigation: false,
@@ -178,6 +183,7 @@ describe('AssetViewer', () => {
       showNavigation: false,
     });
 
+    // @ts-expect-error pending a type fix: https://github.com/testing-library/jest-dom/pull/742/changes
     expect(getByLabelText('to_favorite')).toBeInTheDocument();
     expect(queryByLabelText('unfavorite')).toBeNull();
 
@@ -186,6 +192,7 @@ describe('AssetViewer', () => {
     await waitFor(() =>
       expect(updateAsset).toHaveBeenCalledWith({ id: asset.id, updateAssetDto: { isFavorite: true } }),
     );
+    // @ts-expect-error pending a type fix: https://github.com/testing-library/jest-dom/pull/742/changes
     await waitFor(() => expect(getByLabelText('unfavorite')).toBeInTheDocument());
   });
 });
