@@ -9239,6 +9239,7 @@ export enum Colorspace {
     P3 = "p3"
 }
 export enum ImageFormat {
+    Avif = "avif",
     Jpeg = "jpeg",
     Jxl = "jxl",
     Webp = "webp"
