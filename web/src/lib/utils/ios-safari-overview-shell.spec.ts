@@ -10,11 +10,17 @@ const iphoneSafari = {
 const addTimeline = () => {
   const root = document.createElement('div');
   root.dataset.testOverviewRoot = '';
+  // real browser: both the timeline and the document need overflowing content for scrollTop to stick
+  root.style.height = '300vh';
   const timeline = document.createElement('section');
   timeline.style.overflowY = 'auto';
-  timeline.scrollTop = 37;
+  timeline.style.height = '100px';
+  const content = document.createElement('div');
+  content.style.height = '1000px';
+  timeline.append(content);
   root.append(timeline);
   document.body.append(root);
+  timeline.scrollTop = 37;
   return { root, timeline };
 };
 

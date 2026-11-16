@@ -17,21 +17,34 @@ vi.mock('#lib/managers/asset-viewer-manager.svelte.ts', () => ({
   },
 }));
 
-describe(zoomImageAction.name, () => {
-  it('forwards touch handling options to the zoom engine', () => {
+describe('zoomImageAction', () => {
+  beforeEach(() => {
     createZoomImageWheelMock.mockReturnValue({
       setState: vi.fn(),
       subscribe: vi.fn(() => vi.fn()),
       cleanup: vi.fn(),
     });
+  });
+
+  it('forwards touch handling options to the zoom engine', () => {
     const node = document.createElement('div');
     const shouldZoomOnSingleTouch = () => false;
 
-    const action = zoomImageAction(node, { touchAction: 'pan-y', shouldZoomOnSingleTouch });
+    const cleanup = zoomImageAction({ touchAction: 'pan-y', shouldZoomOnSingleTouch })(node);
 
     expect(node.style.touchAction).toBe('pan-y');
     expect(createZoomImageWheelMock).toHaveBeenCalledWith(node, expect.objectContaining({ shouldZoomOnSingleTouch }));
 
-    action.destroy();
+    cleanup?.();
+  });
+
+  it('blocks browser touch handling by default', () => {
+    const node = document.createElement('div');
+
+    const cleanup = zoomImageAction()(node);
+
+    expect(node.style.touchAction).toBe('none');
+
+    cleanup?.();
   });
 });

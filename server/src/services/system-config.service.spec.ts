@@ -1,11 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
-import type { DeepPartial } from 'src/types.js';
 import { SystemConfig, defaults } from 'src/dtos/config.dto.js';
 import {
   AudioCodec,
   CQMode,
   Colorspace,
   HlsVideoResolution,
+  ImageEffort,
   ImageFormat,
   LogLevel,
   OAuthTokenEndpointAuthMethod,
@@ -18,6 +18,7 @@ import {
   VideoContainer,
 } from 'src/enum.js';
 import { SystemConfigService } from 'src/services/system-config.service.js';
+import type { DeepPartial } from 'src/types.js';
 import { mockEnvData } from 'test/repositories/config.repository.mock.js';
 import { ServiceMocks, newTestService } from 'test/utils.js';
 
@@ -203,14 +204,16 @@ const updatedConfig = Object.freeze<SystemConfig>({
       format: ImageFormat.Webp,
       quality: 80,
       progressive: false,
+      effort: ImageEffort.Medium,
     },
     preview: {
       size: 1440,
       format: ImageFormat.Jpeg,
       quality: 80,
       progressive: false,
+      effort: ImageEffort.Medium,
     },
-    fullsize: { enabled: false, format: ImageFormat.Jpeg, quality: 80, progressive: false },
+    fullsize: { enabled: false, format: ImageFormat.Jpeg, quality: 80, progressive: false, effort: ImageEffort.Medium },
     colorspace: Colorspace.P3,
     extractEmbedded: false,
   },

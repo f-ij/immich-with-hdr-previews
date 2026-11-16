@@ -8,18 +8,6 @@ import fs from 'node:fs/promises';
 import { basename } from 'node:path';
 import { Writable } from 'node:stream';
 import sharp, { Sharp } from 'sharp';
-import type {
-  Bitmap,
-  DecodeToBufferOptions,
-  GenerateThumbhashOptions,
-  GenerateThumbnailOptions,
-  ImageDimensions,
-  ProbeOptions,
-  TranscodeCommand,
-  TransformOptions,
-  VideoInfo,
-  VideoPacketInfo,
-} from 'src/types.js';
 import { ORIENTATION_TO_SHARP_ROTATION } from 'src/constants.js';
 import { Exif } from 'src/database.js';
 import { AssetEditActionItem } from 'src/dtos/editing.dto.js';
@@ -34,12 +22,25 @@ import {
   DvSignalCompatibility,
   H264Profile,
   HevcProfile,
+  ImageEffort,
   ImageFormat,
   LogLevel,
   RawExtractedFormat,
 } from 'src/enum.js';
 import { LoggingRepository } from 'src/repositories/logging.repository.js';
 import { writeHdrImageAvifPreview } from 'src/utils/hdr-image-avif-preview.js';
+import type {
+  Bitmap,
+  DecodeToBufferOptions,
+  GenerateThumbhashOptions,
+  GenerateThumbnailOptions,
+  ImageDimensions,
+  ProbeOptions,
+  TranscodeCommand,
+  TransformOptions,
+  VideoInfo,
+  VideoPacketInfo,
+} from 'src/types.js';
 import { handlePromiseError } from 'src/utils/misc.js';
 import { createAffineMatrix } from 'src/utils/transform.js';
 
@@ -50,6 +51,21 @@ const probe = (input: string, options: string[]): Promise<FfprobeData> =>
   );
 
 const pascalCase = (str: string) => upperFirst(camelCase(str.toLowerCase()));
+
+const IMAGE_EFFORT: Partial<Record<ImageFormat, Record<ImageEffort, number>>> = {
+  [ImageFormat.Jxl]: {
+    [ImageEffort.Low]: 3,
+    [ImageEffort.Medium]: 5,
+    [ImageEffort.High]: 7,
+    [ImageEffort.Max]: 9,
+  },
+  [ImageFormat.Webp]: {
+    [ImageEffort.Low]: 2,
+    [ImageEffort.Medium]: 4,
+    [ImageEffort.High]: 5,
+    [ImageEffort.Max]: 6,
+  },
+};
 
 type ProgressEvent = {
   frames: number;
@@ -252,6 +268,7 @@ export class MediaRepository {
         quality: options.quality,
         chromaSubsampling,
         bitdepth: options.highDynamicRange ? 10 : 8,
+        effort: IMAGE_EFFORT[options.format]?.[options.effort],
       } as const;
     }
 
@@ -259,6 +276,7 @@ export class MediaRepository {
       quality: options.quality,
       chromaSubsampling,
       progressive: options.progressive,
+      effort: IMAGE_EFFORT[options.format]?.[options.effort],
       decodingTier: options.decodingTier,
     };
   }

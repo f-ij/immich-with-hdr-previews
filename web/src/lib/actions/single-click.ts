@@ -1,107 +1,96 @@
-import type { Action } from 'svelte/action';
+import type { Attachment } from 'svelte/attachments';
 
 const DRAG_THRESHOLD = 5;
 const DOUBLE_CLICK_DELAY = 300;
 
-export const singleClick: Action<HTMLElement, (() => void) | undefined> = (node, onClick) => {
-  let callback = onClick;
-  let start: { pointerId: number; x: number; y: number } | undefined;
-  let suppressNextClick = false;
-  let pendingClick: ReturnType<typeof setTimeout> | undefined;
-  const activePointers = new Set<number>();
+// Calls `onClick` for a deliberate single click/tap only: not when the pointer was dragged,
+// not for multi-touch gestures (pinch), and not when the click turns out to be part of a double-click.
+export const singleClick =
+  (onClick?: () => void): Attachment<HTMLElement> =>
+  (node) => {
+    let start: { pointerId: number; x: number; y: number } | undefined;
+    let suppressNextClick = false;
+    let pendingClick: ReturnType<typeof setTimeout> | undefined;
+    const activePointers = new Set<number>();
 
-  const clearPendingClick = () => {
-    if (pendingClick === undefined) {
-      return;
-    }
+    const clearPendingClick = () => {
+      if (pendingClick === undefined) {
+        return;
+      }
 
-    clearTimeout(pendingClick);
-    pendingClick = undefined;
-  };
+      clearTimeout(pendingClick);
+      pendingClick = undefined;
+    };
 
-  const exceedsDragThreshold = (event: PointerEvent) =>
-    !!start &&
-    (Math.abs(event.clientX - start.x) > DRAG_THRESHOLD || Math.abs(event.clientY - start.y) > DRAG_THRESHOLD);
+    const exceedsDragThreshold = (event: PointerEvent) =>
+      !!start &&
+      (Math.abs(event.clientX - start.x) > DRAG_THRESHOLD || Math.abs(event.clientY - start.y) > DRAG_THRESHOLD);
 
-  const handlePointerDown = (event: PointerEvent) => {
-    activePointers.add(event.pointerId);
-    if (activePointers.size > 1 || event.button !== 0) {
+    const handlePointerDown = (event: PointerEvent) => {
+      activePointers.add(event.pointerId);
+      if (activePointers.size > 1 || event.button !== 0) {
+        start = undefined;
+        suppressNextClick = true;
+        clearPendingClick();
+        return;
+      }
+
+      start = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+      suppressNextClick = false;
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerId === start?.pointerId && exceedsDragThreshold(event)) {
+        suppressNextClick = true;
+      }
+    };
+
+    const handlePointerEnd = (event: PointerEvent) => {
+      activePointers.delete(event.pointerId);
+      if (event.pointerId !== start?.pointerId) {
+        return;
+      }
+
+      suppressNextClick ||= exceedsDragThreshold(event);
+      start = undefined;
+    };
+
+    const handlePointerCancel = (event: PointerEvent) => {
+      activePointers.delete(event.pointerId);
       start = undefined;
       suppressNextClick = true;
       clearPendingClick();
-      return;
-    }
+    };
 
-    start = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
-    suppressNextClick = false;
-  };
+    const handleClick = (event: MouseEvent) => {
+      if (event.button !== 0 || event.defaultPrevented) {
+        return;
+      }
 
-  const handlePointerMove = (event: PointerEvent) => {
-    if (event.pointerId === start?.pointerId && exceedsDragThreshold(event)) {
-      suppressNextClick = true;
-    }
-  };
+      if (event.detail > 1 || suppressNextClick) {
+        suppressNextClick = false;
+        clearPendingClick();
+        return;
+      }
 
-  const handlePointerEnd = (event: PointerEvent) => {
-    activePointers.delete(event.pointerId);
-    if (event.pointerId !== start?.pointerId) {
-      return;
-    }
-
-    suppressNextClick ||= exceedsDragThreshold(event);
-    start = undefined;
-  };
-
-  const handlePointerCancel = (event: PointerEvent) => {
-    activePointers.delete(event.pointerId);
-    start = undefined;
-    suppressNextClick = true;
-    clearPendingClick();
-  };
-
-  const handleClick = (event: MouseEvent) => {
-    if (event.button !== 0 || event.defaultPrevented) {
-      return;
-    }
-
-    if (event.detail > 1) {
-      suppressNextClick = false;
       clearPendingClick();
-      return;
-    }
+      pendingClick = setTimeout(() => {
+        pendingClick = undefined;
+        onClick?.();
+      }, DOUBLE_CLICK_DELAY);
+    };
 
-    if (suppressNextClick) {
-      suppressNextClick = false;
+    const controller = new AbortController();
+    const { signal } = controller;
+    node.addEventListener('pointerdown', handlePointerDown, { signal });
+    node.addEventListener('pointermove', handlePointerMove, { signal });
+    node.addEventListener('pointerup', handlePointerEnd, { signal });
+    node.addEventListener('pointercancel', handlePointerCancel, { signal });
+    node.addEventListener('click', handleClick, { signal });
+    node.addEventListener('dblclick', clearPendingClick, { capture: true, signal });
+
+    return () => {
       clearPendingClick();
-      return;
-    }
-
-    clearPendingClick();
-    pendingClick = setTimeout(() => {
-      pendingClick = undefined;
-      callback?.();
-    }, DOUBLE_CLICK_DELAY);
+      controller.abort();
+    };
   };
-
-  node.addEventListener('pointerdown', handlePointerDown);
-  node.addEventListener('pointermove', handlePointerMove);
-  node.addEventListener('pointerup', handlePointerEnd);
-  node.addEventListener('pointercancel', handlePointerCancel);
-  node.addEventListener('click', handleClick);
-  node.addEventListener('dblclick', clearPendingClick, { capture: true });
-
-  return {
-    update(newOnClick) {
-      callback = newOnClick;
-    },
-    destroy() {
-      clearPendingClick();
-      node.removeEventListener('pointerdown', handlePointerDown);
-      node.removeEventListener('pointermove', handlePointerMove);
-      node.removeEventListener('pointerup', handlePointerEnd);
-      node.removeEventListener('pointercancel', handlePointerCancel);
-      node.removeEventListener('click', handleClick);
-      node.removeEventListener('dblclick', clearPendingClick, { capture: true });
-    },
-  };
-};

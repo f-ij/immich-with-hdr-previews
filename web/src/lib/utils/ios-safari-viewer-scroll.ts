@@ -1,6 +1,6 @@
 import {
-  getIphoneSafariEnvironment,
   IPHONE_SAFARI_VIEWER_SCROLL_CLASS,
+  getIphoneSafariEnvironment,
   isIphoneSafariTab,
   type IphoneSafariEnvironment,
 } from '#lib/utils/ios-safari-scroll.ts';

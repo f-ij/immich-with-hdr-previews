@@ -10,11 +10,18 @@ const iphoneSafari = {
 const addViewer = () => {
   const root = document.createElement('div');
   root.dataset.testViewerRoot = '';
+  // real browser: the document must be taller than the viewport for scrollTop to stick
+  root.style.height = '300vh';
   const viewer = document.createElement('section');
   root.append(viewer);
   document.body.append(root);
   return { root, viewer };
 };
+
+// real browser: default to landscape so tests do not depend on the headless viewport’s orientation
+beforeEach(() => {
+  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+});
 
 afterEach(() => {
   document.documentElement.classList.remove('ios-safari-viewer-scroll');
@@ -58,7 +65,7 @@ describe(enableIphoneSafariViewerScroll.name, () => {
       vi.fn(() => portrait),
     );
     const scrollTo = vi.spyOn(globalThis, 'scrollTo').mockImplementation((_, top) => {
-      scroller.scrollTop = Number(top);
+      scroller.scrollTop = top;
     });
 
     const cleanup = enableIphoneSafariViewerScroll(viewer, iphoneSafari);

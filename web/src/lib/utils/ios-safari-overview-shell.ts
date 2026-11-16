@@ -1,9 +1,9 @@
-import type { Action } from 'svelte/action';
 import {
   getIphoneSafariEnvironment,
   isIphoneSafariTab,
   type IphoneSafariEnvironment,
 } from '#lib/utils/ios-safari-scroll.ts';
+import type { Attachment } from 'svelte/attachments';
 
 const OVERVIEW_SHELL_CLASS = 'ios-safari-overview-shell';
 const OVERVIEW_SHELL_ATTRIBUTE = 'data-ios-safari-overview-shell';
@@ -75,24 +75,7 @@ export const enableIphoneSafariOverviewShell = (
   };
 };
 
-export const iphoneSafariOverviewShell: Action<HTMLElement, boolean> = (timeline, enabled) => {
-  let active = false;
-  let disable: (() => void) | undefined;
-
-  const update = (nextEnabled: boolean) => {
-    if (nextEnabled === active) {
-      return;
-    }
-
-    disable?.();
-    disable = nextEnabled ? enableIphoneSafariOverviewShell(timeline) : undefined;
-    active = nextEnabled;
-  };
-
-  update(enabled);
-
-  return {
-    update,
-    destroy: () => disable?.(),
-  };
-};
+export const iphoneSafariOverviewShell =
+  (enabled: boolean): Attachment<HTMLElement> =>
+  (timeline) =>
+    enabled ? enableIphoneSafariOverviewShell(timeline) : undefined;

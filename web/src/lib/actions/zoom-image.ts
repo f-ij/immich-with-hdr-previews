@@ -1,5 +1,6 @@
 import { assetViewerManager } from '#lib/managers/asset-viewer-manager.svelte.ts';
 import { createZoomImageWheel } from '@zoom-image/core';
+import { untrack } from 'svelte';
 
 // Minimal touch shape — avoids importing DOM TouchEvent which isn't available in all TS targets.
 type TouchEventLike = {
@@ -8,24 +9,20 @@ type TouchEventLike = {
 };
 const asTouchEvent = (event: Event) => event as unknown as TouchEventLike;
 
-type ZoomImageActionOptions = {
+type ZoomImageOptions = {
   zoomTarget?: HTMLElement;
+  // CSS touch-action for the zoom surface; `pan-y` lets iPhone Safari collapse its bars on vertical drags.
   touchAction?: string;
   shouldZoomOnSingleTouch?: () => boolean;
 };
 
-export const zoomImageAction = (node: HTMLElement, options?: ZoomImageActionOptions) => {
+export const zoomImageAction = (options?: ZoomImageOptions) => (node: HTMLElement) => {
   const zoomInstance = createZoomImageWheel(node, {
     maxZoom: 10,
-    initialState: assetViewerManager.zoomState,
+    initialState: untrack(() => assetViewerManager.zoomState),
     zoomTarget: options?.zoomTarget,
     shouldZoomOnSingleTouch: options?.shouldZoomOnSingleTouch,
   });
-
-  const unsubscribes = [
-    assetViewerManager.on({ ZoomChange: (state) => zoomInstance.setState(state) }),
-    zoomInstance.subscribe(({ state }) => assetViewerManager.onZoomChange(state)),
-  ];
 
   const controller = new AbortController();
   const { signal } = controller;
@@ -133,20 +130,17 @@ export const zoomImageAction = (node: HTMLElement, options?: ZoomImageActionOpti
 
   node.style.overflow = 'visible';
   node.style.touchAction = options?.touchAction ?? 'none';
-  return {
-    update(newOptions?: ZoomImageActionOptions) {
-      options = newOptions;
-      node.style.touchAction = newOptions?.touchAction ?? 'none';
-      if (newOptions?.zoomTarget !== undefined) {
-        zoomInstance.setState({ zoomTarget: newOptions.zoomTarget });
-      }
-    },
-    destroy() {
-      controller.abort();
-      for (const unsubscribe of unsubscribes) {
-        unsubscribe();
-      }
-      zoomInstance.cleanup();
-    },
+
+  const unsubscribes = untrack(() => [
+    assetViewerManager.on({ ZoomChange: (state) => zoomInstance.setState(state) }),
+    zoomInstance.subscribe(({ state }) => assetViewerManager.onZoomChange(state)),
+  ]);
+
+  return () => {
+    controller.abort();
+    for (const unsubscribe of unsubscribes) {
+      unsubscribe();
+    }
+    zoomInstance.cleanup();
   };
 };

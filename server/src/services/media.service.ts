@@ -1,15 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  AudioStreamInfo,
-  DecodeToBufferOptions,
-  GenerateThumbnailOptions,
-  ImageDimensions,
-  JobItem,
-  JobOf,
-  VideoFormat,
-  VideoInterfaces,
-  VideoStreamInfo,
-} from 'src/types.js';
 import { FACE_THUMBNAIL_SIZE, JOBS_ASSET_PAGINATION_SIZE, THUMBNAIL_DECODING_TIER } from 'src/constants.js';
 import { ImagePathOptions, StorageCore, ThumbnailPathEntity } from 'src/cores/storage.core.js';
 import { AssetFile } from 'src/database.js';
@@ -39,7 +28,19 @@ import { AssetJobRepository } from 'src/repositories/asset-job.repository.js';
 import type { ArgOf } from 'src/repositories/event.repository.js';
 import { BoundingBox } from 'src/repositories/machine-learning.repository.js';
 import { BaseService } from 'src/services/base.service.js';
+import type {
+  AudioStreamInfo,
+  DecodeToBufferOptions,
+  GenerateThumbnailOptions,
+  ImageDimensions,
+  JobItem,
+  JobOf,
+  VideoFormat,
+  VideoInterfaces,
+  VideoStreamInfo,
+} from 'src/types.js';
 import { getAssetFile, getDimensions } from 'src/utils/asset.util.js';
+import { tokenizeForSearch } from 'src/utils/database.js';
 import { checkFaceVisibility, checkOcrVisibility } from 'src/utils/editor.js';
 import { getHdrPreviewSourceMimeType, hasHdrTransferMetadata } from 'src/utils/hdr-image-avif-preview.js';
 import { BaseConfig, ThumbnailConfig } from 'src/utils/media.js';
@@ -326,9 +327,8 @@ export class MediaService extends BaseService {
 
   private async generateImageThumbnails(asset: ThumbnailAsset, { image }: SystemConfig, useEdits: boolean = false) {
     // Handle embedded preview extraction for RAW files
-    const extractedImage = await this.extractOriginalImage(asset, image, useEdits);
     const { info, data, colorspace, highDynamicRange, generateFullsize, convertFullsize, extracted, isTransparent } =
-      extractedImage;
+      await this.extractOriginalImage(asset, image, useEdits);
     const sourceMimeType = getHdrPreviewSourceMimeType(mimeTypes.lookup(asset.originalPath));
     let sourceHighDynamicRange = highDynamicRange;
     if (image.avifHdrBypass && !sourceHighDynamicRange && !useEdits && !extracted && sourceMimeType !== undefined) {
@@ -412,6 +412,7 @@ export class MediaService extends BaseService {
         format: fullsizeFormat,
         quality: image.fullsize.quality,
         progressive: image.fullsize.progressive,
+        effort: image.fullsize.effort,
         decodingTier: 0,
         ...(highDynamicRange && fullsizeFormat === ImageFormat.Avif && { highDynamicRange }),
       } as const;
@@ -493,14 +494,15 @@ export class MediaService extends BaseService {
       orientation: Buffer.isBuffer(inputImage) && exifOrientation ? Number(exifOrientation) : undefined,
     });
 
-    const thumbnailPath = StorageCore.getPersonThumbnailPath({ ownerId, personGroupId });
+    const thumbnailPath = StorageCore.getPersonThumbnailPath({ ownerId, personGroupId }, image.thumbnail.format);
     this.storageCore.ensureFolders(thumbnailPath);
 
     const thumbnailOptions: GenerateThumbnailOptions = {
       colorspace: image.colorspace,
-      format: ImageFormat.Jpeg,
+      format: image.thumbnail.format,
       quality: image.thumbnail.quality,
-      progressive: false,
+      progressive: image.thumbnail.progressive,
+      effort: image.thumbnail.effort,
       processInvalidImages: false,
       size: FACE_THUMBNAIL_SIZE,
       edits: [
@@ -520,6 +522,9 @@ export class MediaService extends BaseService {
 
     await this.mediaRepository.generateThumbnail(decoded, thumbnailOptions, thumbnailPath);
     await this.personRepository.update({ ownerId, personGroupId, thumbnailPath });
+    if (data.thumbnailPath && data.thumbnailPath !== thumbnailPath) {
+      await this.jobRepository.queue({ name: JobName.FileDelete, data: { files: [data.thumbnailPath] } });
+    }
 
     return JobStatus.Success;
   }
@@ -944,7 +949,10 @@ export class MediaService extends BaseService {
     await this.personRepository.updateVisibility(faceStatuses.visible, faceStatuses.hidden);
 
     const ocrStatuses = checkOcrVisibility(ocrData, originalDimensions, cropBox);
-    await this.ocrRepository.updateOcrVisibilities(asset.id, ocrStatuses.visible, ocrStatuses.hidden);
+    const searchText = (cropBox ? ocrStatuses.visible : ocrData)
+      .flatMap(({ text }) => tokenizeForSearch(text))
+      .join(' ');
+    await this.ocrRepository.updateOcrVisibilities(asset.id, ocrStatuses.visible, ocrStatuses.hidden, searchText);
 
     return generated;
   }

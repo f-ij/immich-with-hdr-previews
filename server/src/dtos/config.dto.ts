@@ -1,8 +1,6 @@
 import { CronExpression } from '@nestjs/schedule';
 import { validateCronExpression } from 'cron';
-import { createZodDto } from 'nestjs-zod';
 import z from 'zod';
-import type { DeepPartial } from 'src/types.js';
 import {
   AudioCodec,
   AudioCodecSchema,
@@ -13,6 +11,8 @@ import {
   ConfigVisibility,
   HlsVideoResolution,
   HlsVideoResolutionSchema,
+  ImageEffort,
+  ImageEffortSchema,
   ImageFormat,
   ImageFormatSchema,
   LogLevel,
@@ -32,6 +32,8 @@ import {
   VideoContainer,
   VideoContainerSchema,
 } from 'src/enum.js';
+import type { DeepPartial } from 'src/types.js';
+import { createZodDto } from 'src/zod.js';
 
 const { Admin, User, Public } = ConfigVisibility;
 
@@ -70,8 +72,7 @@ const httpsDomain = (label: string) =>
       }
     }, `${label} must not include a path, query, or fragment`);
 
-const emptyOrUrl = (error: string) =>
-  z.string().refine((url) => url.length === 0 || z.url().safeParse(url).success, { error });
+const emptyOrUrl = (error: string) => z.string().refine((url) => url.length === 0 || z.url().validate(url), { error });
 
 const AdminConfigIntegrityJobSchema = z
   .object({
@@ -99,6 +100,7 @@ const AdminConfigGeneratedImageSchema = z
     quality: z.int().min(1).max(100).describe('Quality'),
     size: z.int().min(1).describe('Size').meta({ visibility: User }),
     progressive: configBool.default(false).optional().describe('Progressive'),
+    effort: ImageEffortSchema,
   })
   .meta({ id: 'AdminConfigGeneratedImageDto' });
 
@@ -324,7 +326,7 @@ const AdminConfigSchemaWithVisibility = z
           return value;
         }
 
-        if (!z.url().safeParse(value.mobileRedirectUri).success) {
+        if (!z.url().validate(value.mobileRedirectUri)) {
           ctx.issues.push({
             code: 'custom',
             message: 'Mobile redirect URI must be an empty string or a valid URL',
@@ -380,6 +382,7 @@ const AdminConfigSchemaWithVisibility = z
             format: ImageFormatSchema,
             quality: z.int().min(1).max(100).describe('Quality'),
             progressive: configBool.default(false).optional().describe('Progressive'),
+            effort: ImageEffortSchema,
           })
           .meta({ id: 'AdminConfigGeneratedFullsizeImageDto' }),
         colorspace: ColorspaceSchema,
@@ -546,7 +549,6 @@ const UserConfigSchema = applyVisibility(User)! as z.ZodType<DeepPartial<SystemC
 const PublicConfigSchema = applyVisibility(Public)! as z.ZodType<DeepPartial<SystemConfig>>;
 
 // prevent visibility metadata from leaking to openapi spec
-// eslint-disable-next-line unicorn/no-top-level-side-effects
 stripVisibilityMetadata(AdminConfigSchemaWithVisibility);
 
 const ConfigTemplateStorageOptionSchema = z
@@ -746,12 +748,14 @@ export const defaults = Object.freeze<SystemConfig>({
       size: 250,
       quality: 80,
       progressive: false,
+      effort: ImageEffort.Medium,
     },
     preview: {
       format: ImageFormat.Jpeg,
       size: 1440,
       quality: 80,
       progressive: false,
+      effort: ImageEffort.Medium,
     },
     colorspace: Colorspace.P3,
     extractEmbedded: false,
@@ -760,6 +764,7 @@ export const defaults = Object.freeze<SystemConfig>({
       format: ImageFormat.Jpeg,
       quality: 80,
       progressive: false,
+      effort: ImageEffort.Medium,
     },
   },
   newVersionCheck: {

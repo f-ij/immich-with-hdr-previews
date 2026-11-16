@@ -1,5 +1,9 @@
-import { fireEvent } from '@testing-library/svelte';
-import { singleClick } from './single-click';
+import { singleClick } from '#lib/actions/single-click.ts';
+
+const click = (node: HTMLElement, detail: number) =>
+  node.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0, detail }));
+const pointer = (node: HTMLElement, type: string, clientX: number) =>
+  node.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 1, button: 0, clientX, clientY: 10 }));
 
 describe('singleClick', () => {
   beforeEach(() => vi.useFakeTimers());
@@ -8,9 +12,9 @@ describe('singleClick', () => {
   it('handles a single click after the double-click window', async () => {
     const node = document.createElement('div');
     const onClick = vi.fn();
-    singleClick(node, onClick);
+    singleClick(onClick)(node);
 
-    await fireEvent.click(node, { detail: 1 });
+    click(node, 1);
     expect(onClick).not.toHaveBeenCalled();
 
     await vi.runAllTimersAsync();
@@ -20,12 +24,12 @@ describe('singleClick', () => {
   it('ignores a click after dragging', async () => {
     const node = document.createElement('div');
     const onClick = vi.fn();
-    singleClick(node, onClick);
+    singleClick(onClick)(node);
 
-    await fireEvent.pointerDown(node, { pointerId: 1, button: 0, clientX: 10, clientY: 10 });
-    await fireEvent.pointerMove(node, { pointerId: 1, clientX: 30, clientY: 10 });
-    await fireEvent.pointerUp(node, { pointerId: 1, button: 0, clientX: 30, clientY: 10 });
-    await fireEvent.click(node, { detail: 1 });
+    pointer(node, 'pointerdown', 10);
+    pointer(node, 'pointermove', 30);
+    pointer(node, 'pointerup', 30);
+    click(node, 1);
     await vi.runAllTimersAsync();
 
     expect(onClick).not.toHaveBeenCalled();
@@ -34,23 +38,23 @@ describe('singleClick', () => {
   it('ignores clicks that form a double-click', async () => {
     const node = document.createElement('div');
     const onClick = vi.fn();
-    singleClick(node, onClick);
+    singleClick(onClick)(node);
 
-    await fireEvent.click(node, { detail: 1 });
-    await fireEvent.click(node, { detail: 2 });
-    await fireEvent.dblClick(node, { detail: 2 });
+    click(node, 1);
+    click(node, 2);
+    node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 }));
     await vi.runAllTimersAsync();
 
     expect(onClick).not.toHaveBeenCalled();
   });
 
-  it('clears a pending click when destroyed', async () => {
+  it('clears a pending click on cleanup', async () => {
     const node = document.createElement('div');
     const onClick = vi.fn();
-    const action = singleClick(node, onClick);
+    const cleanup = singleClick(onClick)(node);
 
-    await fireEvent.click(node, { detail: 1 });
-    action?.destroy?.();
+    click(node, 1);
+    cleanup?.();
     await vi.runAllTimersAsync();
 
     expect(onClick).not.toHaveBeenCalled();

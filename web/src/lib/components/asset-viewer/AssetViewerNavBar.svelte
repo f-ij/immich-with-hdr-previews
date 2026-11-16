@@ -1,11 +1,11 @@
 <script lang="ts">
   import ActionMenuItem from '#lib/components/ActionMenuItem.svelte';
-  import type { OnAction, PreAction } from '#lib/components/asset-viewer/actions/action.ts';
+  import LoadingDots from '#lib/components/LoadingDots.svelte';
   import ArchiveAction from '#lib/components/asset-viewer/actions/ArchiveAction.svelte';
   import DeleteAction from '#lib/components/asset-viewer/actions/DeleteAction.svelte';
   import RestoreAction from '#lib/components/asset-viewer/actions/RestoreAction.svelte';
   import SetVisibilityAction from '#lib/components/asset-viewer/actions/SetVisibilityAction.svelte';
-  import LoadingDots from '#lib/components/LoadingDots.svelte';
+  import type { OnAction, PreAction } from '#lib/components/asset-viewer/actions/action.ts';
   import ButtonContextMenu from '#lib/components/shared-components/context-menu/ButtonContextMenu.svelte';
   import { assetViewerManager } from '#lib/managers/asset-viewer-manager.svelte.ts';
   import { authManager } from '#lib/managers/auth-manager.svelte.ts';
@@ -85,22 +85,24 @@
 
 <CommandPaletteDefaultProvider name={$t('assets')} actions={withoutIcons([Close, Cast, ...Object.values(Actions)])} />
 
-<div class="relative flex h-16 place-items-center justify-between px-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.4)]">
+<div
+  class="relative isolate flex h-16 place-items-center justify-between px-3 drop-shadow-[0_0_1px_rgba(0,0,0,0.4)] transition-transform duration-200"
+>
   <div
     data-testid="asset-viewer-navbar-backdrop"
     class={[
-      'pointer-events-none absolute inset-0 bg-linear-to-b from-black/40 transition-opacity duration-200',
+      'pointer-events-none absolute inset-x-0 top-0 -z-10 h-24 bg-black/40 mask-smoothstep-to-bottom transition-opacity duration-200',
       { 'opacity-0': !controlsVisible },
     ]}
   ></div>
-
-  <div class="dark relative z-10" data-testid="asset-viewer-close-action">
+  <!-- Close stays reachable while the other controls are hidden -->
+  <div class="dark" data-testid="asset-viewer-close-action">
     <ActionButton action={Close} />
   </div>
 
   <div
     class={[
-      'dark relative z-10 -m-1 flex items-center gap-2 overflow-x-auto p-1 transition-[transform,opacity] duration-200 *:shrink-0',
+      'dark -m-1 flex items-center gap-2 overflow-x-auto p-1 transition-[transform,opacity] duration-200 *:shrink-0',
       { '-translate-y-full opacity-0 pointer-events-none': !controlsVisible },
     ]}
     data-testid="asset-viewer-navbar-actions"

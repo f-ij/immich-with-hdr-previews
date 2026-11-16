@@ -1,6 +1,5 @@
 import { ShallowDehydrateObject } from 'kysely';
 import { OutputInfo } from 'sharp';
-import type { AudioStreamInfo, JobCounts, RawImageInfo, VideoFormat, VideoStreamInfo } from 'src/types.js';
 import { Exif } from 'src/database.js';
 import { SystemConfig } from 'src/dtos/config.dto.js';
 import { AssetEditAction } from 'src/dtos/editing.dto.js';
@@ -14,6 +13,7 @@ import {
   Colorspace,
   ColorTransfer,
   ExifOrientation,
+  ImageEffort,
   ImageFormat,
   JobName,
   JobStatus,
@@ -23,6 +23,7 @@ import {
   VideoCodec,
 } from 'src/enum.js';
 import { MediaService } from 'src/services/media.service.js';
+import type { AudioStreamInfo, JobCounts, RawImageInfo, VideoFormat, VideoStreamInfo } from 'src/types.js';
 import { AssetFaceFactory } from 'test/factories/asset-face.factory.js';
 import { AssetFactory } from 'test/factories/asset.factory.js';
 import { PersonFactory } from 'test/factories/person.factory.js';
@@ -498,6 +499,7 @@ describe(MediaService.name, () => {
           size: 1440,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           processInvalidImages: false,
           edits: [],
           decodingTier: 0,
@@ -512,6 +514,7 @@ describe(MediaService.name, () => {
           size: 250,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           processInvalidImages: false,
           edits: [],
           decodingTier: 4,
@@ -796,6 +799,7 @@ describe(MediaService.name, () => {
           size: 1440,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           processInvalidImages: false,
           edits: [],
           decodingTier: 0,
@@ -810,6 +814,7 @@ describe(MediaService.name, () => {
           size: 250,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           processInvalidImages: false,
           edits: [],
           decodingTier: 4,
@@ -980,6 +985,7 @@ describe(MediaService.name, () => {
           size: 1440,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           processInvalidImages: false,
           edits: [],
           decodingTier: 0,
@@ -994,6 +1000,7 @@ describe(MediaService.name, () => {
           size: 250,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           processInvalidImages: false,
           edits: [],
           decodingTier: 4,
@@ -1016,6 +1023,7 @@ describe(MediaService.name, () => {
         expect.objectContaining({
           format: ImageFormat.Jpeg,
           progressive: true,
+          effort: ImageEffort.Medium,
         }),
         expect.stringContaining('preview.jpeg'),
       );
@@ -1024,6 +1032,7 @@ describe(MediaService.name, () => {
         expect.objectContaining({
           format: ImageFormat.Webp,
           progressive: false,
+          effort: ImageEffort.Medium,
         }),
         expect.stringContaining('thumbnail.webp'),
       );
@@ -1055,6 +1064,7 @@ describe(MediaService.name, () => {
         expect.objectContaining({
           format: ImageFormat.Jpeg,
           progressive: false,
+          effort: ImageEffort.Medium,
         }),
         expect.stringContaining('preview.jpeg'),
       );
@@ -1063,6 +1073,7 @@ describe(MediaService.name, () => {
         expect.objectContaining({
           format: ImageFormat.Jpeg,
           progressive: true,
+          effort: ImageEffort.Medium,
         }),
         expect.stringContaining('thumbnail.jpeg'),
       );
@@ -1305,6 +1316,7 @@ describe(MediaService.name, () => {
           size: 1440,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           processInvalidImages: false,
           edits: [],
           decodingTier: 0,
@@ -1341,6 +1353,7 @@ describe(MediaService.name, () => {
           format: ImageFormat.Webp,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           processInvalidImages: false,
           edits: [],
           decodingTier: 0,
@@ -1355,6 +1368,7 @@ describe(MediaService.name, () => {
           size: 1440,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           processInvalidImages: false,
           edits: [],
           decodingTier: 0,
@@ -1389,6 +1403,7 @@ describe(MediaService.name, () => {
           format: ImageFormat.Jpeg,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           processInvalidImages: false,
           edits: [],
           decodingTier: 0,
@@ -1402,6 +1417,7 @@ describe(MediaService.name, () => {
           format: ImageFormat.Jpeg,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           size: 1440,
           processInvalidImages: false,
           edits: [],
@@ -1441,6 +1457,7 @@ describe(MediaService.name, () => {
           format: ImageFormat.Jpeg,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           processInvalidImages: false,
           edits: [],
           decodingTier: 0,
@@ -1506,6 +1523,7 @@ describe(MediaService.name, () => {
           format: ImageFormat.Jpeg,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           processInvalidImages: false,
           edits: [],
           decodingTier: 0,
@@ -1549,6 +1567,7 @@ describe(MediaService.name, () => {
           format: ImageFormat.Webp,
           quality: 90,
           progressive: false,
+          effort: ImageEffort.Medium,
           processInvalidImages: false,
           edits: [],
           decodingTier: 0,
@@ -1580,6 +1599,7 @@ describe(MediaService.name, () => {
         expect.objectContaining({
           format: ImageFormat.Jpeg,
           progressive: true,
+          effort: ImageEffort.Medium,
         }),
         expect.stringContaining('fullsize.jpeg'),
       );
@@ -1736,6 +1756,50 @@ describe(MediaService.name, () => {
 
       expect(mocks.asset.update).toHaveBeenCalledWith(expect.objectContaining({ thumbhash: thumbhashBuffer }));
     });
+
+    it('should keep the ocr search text if the edits have no crop', async () => {
+      const asset = AssetFactory.from()
+        .exif()
+        .edit({ action: AssetEditAction.Rotate, parameters: { angle: 90 } })
+        .build();
+      mocks.assetJob.getForGenerateThumbnailJob.mockResolvedValue(getForGenerateThumbnail(asset));
+      mocks.ocr.getByAssetId.mockResolvedValue([factory.assetOcr({ assetId: asset.id, text: 'Hello World' })]);
+
+      await sut.handleAssetEditThumbnailGeneration({ id: asset.id });
+
+      expect(mocks.ocr.updateOcrVisibilities).toHaveBeenCalledWith(asset.id, [], [], 'Hello World');
+    });
+
+    it('should tokenize the ocr search text inside the crop', async () => {
+      const asset = AssetFactory.from()
+        .exif({ exifImageWidth: 1000, exifImageHeight: 1000 })
+        .edit({ action: AssetEditAction.Crop, parameters: { x: 0, y: 0, width: 500, height: 500 } })
+        .build();
+      const inside = factory.assetOcr({ assetId: asset.id, text: '東京タワー' });
+      const outside = factory.assetOcr({
+        assetId: asset.id,
+        text: 'World',
+        x1: 0.6,
+        y1: 0.6,
+        x2: 0.8,
+        y2: 0.6,
+        x3: 0.8,
+        y3: 0.8,
+        x4: 0.6,
+        y4: 0.8,
+      });
+      mocks.assetJob.getForGenerateThumbnailJob.mockResolvedValue(getForGenerateThumbnail(asset));
+      mocks.ocr.getByAssetId.mockResolvedValue([inside, outside]);
+
+      await sut.handleAssetEditThumbnailGeneration({ id: asset.id });
+
+      expect(mocks.ocr.updateOcrVisibilities).toHaveBeenCalledWith(
+        asset.id,
+        [inside],
+        [outside],
+        '東京 京タ タワ ワー',
+      );
+    });
   });
 
   describe('handleGeneratePersonThumbnail', () => {
@@ -1797,9 +1861,10 @@ describe(MediaService.name, () => {
         { data, info },
         {
           colorspace: Colorspace.P3,
-          format: ImageFormat.Jpeg,
+          format: ImageFormat.Webp,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           edits: [
             {
               action: 'crop',
@@ -1822,6 +1887,65 @@ describe(MediaService.name, () => {
         personGroupId: person.personGroupId,
         thumbnailPath: expect.any(String),
       });
+    });
+
+    it('should replace a thumbnail in a different format', async () => {
+      const person = PersonFactory.create();
+
+      mocks.person.getDataForThumbnailGenerationJob.mockResolvedValue({
+        ...personThumbnailStub.newThumbnailMiddle,
+        thumbnailPath: '/data/thumbs/person.jpeg',
+      });
+      mocks.media.generateThumbnail.mockResolvedValue();
+      mocks.media.decodeImage.mockResolvedValue({
+        data: Buffer.from(''),
+        info: { width: 1000, height: 1000 } as OutputInfo,
+      });
+
+      await expect(
+        sut.handleGeneratePersonThumbnail({ ownerId: person.ownerId, personGroupId: person.personGroupId }),
+      ).resolves.toBe(JobStatus.Success);
+
+      expect(mocks.person.update).toHaveBeenCalledWith({
+        ownerId: person.ownerId,
+        personGroupId: person.personGroupId,
+        thumbnailPath: expect.stringMatching(/\.webp$/),
+      });
+      expect(mocks.job.queue).toHaveBeenCalledWith({
+        name: JobName.FileDelete,
+        data: { files: ['/data/thumbs/person.jpeg'] },
+      });
+    });
+
+    it('should respect the thumbnail settings', async () => {
+      const person = PersonFactory.create();
+
+      mocks.systemMetadata.get.mockResolvedValue({
+        image: {
+          thumbnail: { format: ImageFormat.Jxl, quality: 90, progressive: true, effort: ImageEffort.High },
+        },
+      });
+      mocks.person.getDataForThumbnailGenerationJob.mockResolvedValue(personThumbnailStub.newThumbnailMiddle);
+      mocks.media.generateThumbnail.mockResolvedValue();
+      mocks.media.decodeImage.mockResolvedValue({
+        data: Buffer.from(''),
+        info: { width: 1000, height: 1000 } as OutputInfo,
+      });
+
+      await expect(
+        sut.handleGeneratePersonThumbnail({ ownerId: person.ownerId, personGroupId: person.personGroupId }),
+      ).resolves.toBe(JobStatus.Success);
+
+      expect(mocks.media.generateThumbnail).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          format: ImageFormat.Jxl,
+          quality: 90,
+          progressive: true,
+          effort: ImageEffort.High,
+        }),
+        expect.stringMatching(/\.jxl$/),
+      );
     });
 
     it('should use preview path if video', async () => {
@@ -1851,9 +1975,10 @@ describe(MediaService.name, () => {
         { data, info },
         {
           colorspace: Colorspace.P3,
-          format: ImageFormat.Jpeg,
+          format: ImageFormat.Webp,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           edits: [
             {
               action: 'crop',
@@ -1900,9 +2025,10 @@ describe(MediaService.name, () => {
         { data, info },
         {
           colorspace: Colorspace.P3,
-          format: ImageFormat.Jpeg,
+          format: ImageFormat.Webp,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           edits: [
             {
               action: 'crop',
@@ -1945,9 +2071,10 @@ describe(MediaService.name, () => {
         { data, info },
         {
           colorspace: Colorspace.P3,
-          format: ImageFormat.Jpeg,
+          format: ImageFormat.Webp,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           edits: [
             {
               action: 'crop',
@@ -1990,9 +2117,10 @@ describe(MediaService.name, () => {
         { data, info },
         {
           colorspace: Colorspace.P3,
-          format: ImageFormat.Jpeg,
+          format: ImageFormat.Webp,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           edits: [
             {
               action: 'crop',
@@ -2035,9 +2163,10 @@ describe(MediaService.name, () => {
         { data, info },
         {
           colorspace: Colorspace.P3,
-          format: ImageFormat.Jpeg,
+          format: ImageFormat.Webp,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           edits: [
             {
               action: 'crop',
@@ -2085,9 +2214,10 @@ describe(MediaService.name, () => {
         { data, info },
         {
           colorspace: Colorspace.P3,
-          format: ImageFormat.Jpeg,
+          format: ImageFormat.Webp,
           quality: 80,
           progressive: false,
+          effort: ImageEffort.Medium,
           edits: [
             {
               action: 'crop',

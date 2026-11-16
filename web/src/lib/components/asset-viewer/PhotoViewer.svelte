@@ -1,13 +1,12 @@
 <script lang="ts">
-  import { shortcuts } from '#lib/actions/shortcut.ts';
   import { singleClick } from '#lib/actions/single-click.ts';
   import { swipe, type SwipeEvent } from '#lib/actions/swipe.ts';
   import { zoomImageAction } from '#lib/actions/zoom-image.ts';
   import AdaptiveImage from '#lib/components/AdaptiveImage.svelte';
-  import FaceEditor from '#lib/components/asset-viewer/face-editor/FaceEditor.svelte';
-  import OcrBoundingBox from '#lib/components/asset-viewer/OcrBoundingBox.svelte';
   import AssetViewerEvents from '#lib/components/AssetViewerEvents.svelte';
   import Thumbhash from '#lib/components/Thumbhash.svelte';
+  import OcrBoundingBox from '#lib/components/asset-viewer/OcrBoundingBox.svelte';
+  import FaceEditor from '#lib/components/asset-viewer/face-editor/FaceEditor.svelte';
   import { assetViewerManager, type Faces } from '#lib/managers/asset-viewer-manager.svelte.ts';
   import { castManager } from '#lib/managers/cast-manager.svelte.ts';
   import { faceManager } from '#lib/stores/face.svelte.ts';
@@ -20,7 +19,7 @@
   import { getOcrBoundingBoxes } from '#lib/utils/ocr-utils.ts';
   import { getBoundingBox, type BoundingBox } from '#lib/utils/people-utils.ts';
   import { type SharedLinkResponseDto } from '@immich/sdk';
-  import { toastManager } from '@immich/ui';
+  import { shortcuts, toastManager } from '@immich/ui';
   import { onDestroy, untrack } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { AssetCursor } from './AssetViewer.svelte';
@@ -49,8 +48,9 @@
 
   const { slideshowState, slideshowLook } = slideshowStore;
   const asset = $derived(cursor.current);
-  const viewerTouchAction = allowVerticalPageScroll ? 'pan-y' : 'none';
-  const shouldZoomOnSingleTouch = viewerTouchAction === 'pan-y' ? () => assetViewerManager.zoom > 1 : undefined;
+  // On iPhone Safari vertical drags scroll the page (collapsing Safari's bars); one-finger panning only once zoomed in.
+  const viewerTouchAction = $derived(allowVerticalPageScroll ? 'pan-y' : 'none');
+  const shouldZoomOnSingleTouch = $derived(allowVerticalPageScroll ? () => assetViewerManager.zoom > 1 : undefined);
 
   let visibleImageReady: boolean = $state(false);
 
@@ -220,13 +220,13 @@
 
 <AssetViewerEvents {onCopy} {onZoom} {onFaceEditModeChange} />
 
-<svelte:document
-  use:shortcuts={[
+<svelte:window
+  {@attach shortcuts([
     { shortcut: { key: 'z' }, onShortcut: onZoom, preventDefault: true },
     { shortcut: { key: 's' }, onShortcut: onPlaySlideshow, preventDefault: true },
     { shortcut: { key: 'c', ctrl: true }, onShortcut: onCopyShortcut, preventDefault: false },
     { shortcut: { key: 'c', meta: true }, onShortcut: onCopyShortcut, preventDefault: false },
-  ]}
+  ])}
 />
 
 <div
@@ -237,9 +237,9 @@
   data-testid="photo-viewer"
   role="presentation"
   ondblclick={onZoom}
-  use:singleClick={onClick}
-  use:zoomImageAction={{ zoomTarget: adaptiveImage, touchAction: viewerTouchAction, shouldZoomOnSingleTouch }}
-  use:swipe={{ onSwipe, touchAction: viewerTouchAction }}
+  {@attach singleClick(onClick)}
+  {@attach zoomImageAction({ zoomTarget: adaptiveImage, touchAction: viewerTouchAction, shouldZoomOnSingleTouch })}
+  {@attach swipe({ onSwipe, touchAction: viewerTouchAction })}
 >
   <AdaptiveImage
     {asset}
